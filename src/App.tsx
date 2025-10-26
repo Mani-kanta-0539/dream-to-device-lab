@@ -10,6 +10,7 @@ import ForgotPassword from "./pages/ForgotPassword";
 import Onboarding from "./pages/Onboarding";
 import Dashboard from "./pages/Dashboard";
 import Workouts from "./pages/Workouts";
+import ActiveWorkout from "./pages/ActiveWorkout";
 import VideoAnalysis from "./pages/VideoAnalysis";
 import Nutrition from "./pages/Nutrition";
 import Progress from "./pages/Progress";
@@ -31,10 +32,11 @@ const App = () => (
           <Route path="/login" element={<Login />} />
           <Route path="/register" element={<Register />} />
           <Route path="/forgot-password" element={<ForgotPassword />} />
-          <Route path="/onboarding" element={<Onboarding />} />
-          <Route path="/dashboard" element={<Dashboard />} />
-          <Route path="/workouts" element={<Workouts />} />
-          <Route path="/video-analysis" element={<VideoAnalysis />} />
+            <Route path="/onboarding" element={<Onboarding />} />
+            <Route path="/dashboard" element={<Dashboard />} />
+            <Route path="/workouts" element={<Workouts />} />
+            <Route path="/workout/:id" element={<ActiveWorkout />} />
+            <Route path="/video-analysis" element={<VideoAnalysis />} />
           <Route path="/nutrition" element={<Nutrition />} />
           <Route path="/progress" element={<Progress />} />
           <Route path="/profile" element={<Profile />} />
