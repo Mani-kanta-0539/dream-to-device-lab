@@ -12,6 +12,7 @@ import Dashboard from "./pages/Dashboard";
 import Workouts from "./pages/Workouts";
 import ActiveWorkout from "./pages/ActiveWorkout";
 import VideoAnalysis from "./pages/VideoAnalysis";
+import AnalysisResults from "./pages/AnalysisResults";
 import Nutrition from "./pages/Nutrition";
 import Progress from "./pages/Progress";
 import Profile from "./pages/Profile";
@@ -37,6 +38,7 @@ const App = () => (
           <Route path="/workouts" element={<Workouts />} />
           <Route path="/workout/:id" element={<ActiveWorkout />} />
           <Route path="/video-analysis" element={<VideoAnalysis />} />
+          <Route path="/analysis/:id" element={<AnalysisResults />} />
           <Route path="/nutrition" element={<Nutrition />} />
           <Route path="/progress" element={<Progress />} />
           <Route path="/profile" element={<Profile />} />
