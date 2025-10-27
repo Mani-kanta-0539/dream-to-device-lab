@@ -9,11 +9,13 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { useToast } from "@/hooks/use-toast";
 import { forgotPasswordSchema, ForgotPasswordFormData } from "@/lib/validations/auth";
+import { useAuth } from "@/contexts/AuthContext";
 
 const ForgotPassword = () => {
   const [isLoading, setIsLoading] = useState(false);
   const [emailSent, setEmailSent] = useState(false);
   const { toast } = useToast();
+  const { resetPassword } = useAuth();
 
   const form = useForm<ForgotPasswordFormData>({
     resolver: zodResolver(forgotPasswordSchema),
@@ -24,25 +26,22 @@ const ForgotPassword = () => {
 
   const onSubmit = async (data: ForgotPasswordFormData) => {
     setIsLoading(true);
-    try {
-      // TODO: Implement actual Supabase password reset in Phase 5
-      console.log("Forgot password data:", data);
-      
-      // Simulate API call
-      await new Promise((resolve) => setTimeout(resolve, 1000));
-      
-      setEmailSent(true);
-      toast({
-        title: "Email Sent!",
-        description: "Check your inbox for password reset instructions.",
-      });
-    } catch (error) {
+    
+    const { error } = await resetPassword(data.email);
+    
+    if (error) {
       toast({
         title: "Error",
-        description: "Something went wrong. Please try again.",
+        description: error.message || "Failed to send reset link. Please try again.",
         variant: "destructive",
       });
-    } finally {
+      setIsLoading(false);
+    } else {
+      toast({
+        title: "Success",
+        description: "Password reset link has been sent to your email.",
+      });
+      setEmailSent(true);
       setIsLoading(false);
     }
   };

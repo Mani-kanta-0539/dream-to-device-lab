@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -11,13 +11,23 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { useToast } from "@/hooks/use-toast";
 import { registerSchema, RegisterFormData } from "@/lib/validations/auth";
 import { PasswordStrengthIndicator } from "@/components/auth/PasswordStrengthIndicator";
+import { useAuth } from "@/contexts/AuthContext";
 
 const Register = () => {
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
+  const [fullName, setFullName] = useState("");
   const navigate = useNavigate();
   const { toast } = useToast();
+  const { signUp, user } = useAuth();
+
+  // Redirect if already logged in
+  useEffect(() => {
+    if (user) {
+      navigate("/dashboard");
+    }
+  }, [user, navigate]);
 
   const form = useForm<RegisterFormData>({
     resolver: zodResolver(registerSchema),
@@ -31,29 +41,32 @@ const Register = () => {
   const password = form.watch("password");
 
   const onSubmit = async (data: RegisterFormData) => {
-    setIsLoading(true);
-    try {
-      // TODO: Implement actual Supabase authentication in Phase 5
-      console.log("Register data:", data);
-      
-      // Simulate API call
-      await new Promise((resolve) => setTimeout(resolve, 1000));
-      
-      toast({
-        title: "Success!",
-        description: "Registration functionality will be implemented in Phase 5. Redirecting to onboarding...",
-      });
-      
-      // Navigate to onboarding after successful registration
-      navigate("/onboarding");
-    } catch (error) {
+    if (!fullName.trim()) {
       toast({
         title: "Error",
-        description: "Something went wrong. Please try again.",
+        description: "Please enter your full name.",
         variant: "destructive",
       });
-    } finally {
+      return;
+    }
+
+    setIsLoading(true);
+    
+    const { error } = await signUp(data.email, data.password, fullName);
+    
+    if (error) {
+      toast({
+        title: "Error",
+        description: error.message || "Failed to create account. Please try again.",
+        variant: "destructive",
+      });
       setIsLoading(false);
+    } else {
+      toast({
+        title: "Success",
+        description: "Your account has been created! Please check your email to verify.",
+      });
+      navigate("/onboarding");
     }
   };
 
@@ -75,6 +88,20 @@ const Register = () => {
         <CardContent>
           <Form {...form}>
             <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
+              <div className="space-y-2">
+                <label htmlFor="fullName" className="text-sm font-medium">
+                  Full Name
+                </label>
+                <Input
+                  id="fullName"
+                  type="text"
+                  placeholder="John Doe"
+                  value={fullName}
+                  onChange={(e) => setFullName(e.target.value)}
+                  required
+                />
+              </div>
+
               <FormField
                 control={form.control}
                 name="email"

@@ -12,6 +12,8 @@ import { GoalSelectionStep } from "@/components/onboarding/GoalSelectionStep";
 import { PersonalStatsStep } from "@/components/onboarding/PersonalStatsStep";
 import { WorkoutPreferencesStep } from "@/components/onboarding/WorkoutPreferencesStep";
 import { DietaryPreferencesStep } from "@/components/onboarding/DietaryPreferencesStep";
+import { supabase } from "@/integrations/supabase/client";
+import { useAuth } from "@/contexts/AuthContext";
 
 const steps = [
   { title: "Fitness Level", description: "Tell us about your experience" },
@@ -24,8 +26,10 @@ const steps = [
 const Onboarding = () => {
   const [currentStep, setCurrentStep] = useState(0);
   const [onboardingData, setOnboardingData] = useState<any>({});
+  const [isLoading, setIsLoading] = useState(false);
   const navigate = useNavigate();
   const { toast } = useToast();
+  const { user } = useAuth();
 
   const progress = ((currentStep + 1) / steps.length) * 100;
 
@@ -46,25 +50,73 @@ const Onboarding = () => {
   };
 
   const handleComplete = async () => {
-    try {
-      // TODO: Save onboarding data to Supabase in Phase 5
-      console.log("Onboarding completed:", onboardingData);
-      
-      toast({
-        title: "Onboarding Complete!",
-        description: "Your personalized fitness plan is ready. Redirecting to dashboard...",
-      });
-      
-      // Simulate API call
-      await new Promise((resolve) => setTimeout(resolve, 1000));
-      
-      navigate("/dashboard");
-    } catch (error) {
+    if (!user) {
       toast({
         title: "Error",
-        description: "Something went wrong. Please try again.",
+        description: "You must be logged in to complete onboarding.",
         variant: "destructive",
       });
+      return;
+    }
+
+    setIsLoading(true);
+
+    try {
+      // Update user preferences
+      const { error: preferencesError } = await supabase
+        .from('user_preferences')
+        .update({
+          fitness_level: onboardingData.fitnessLevel,
+          goals: onboardingData.goals || [],
+          preferred_workout_types: onboardingData.workoutTypes || [],
+          preferred_workout_duration: onboardingData.workoutDuration,
+          dietary_restrictions: onboardingData.dietaryRestrictions || []
+        })
+        .eq('user_id', user.id);
+
+      if (preferencesError) throw preferencesError;
+
+      // Insert initial stats if provided
+      if (onboardingData.weight || onboardingData.height) {
+        const { error: statsError } = await supabase
+          .from('user_stats')
+          .insert({
+            user_id: user.id,
+            weight: onboardingData.weight,
+            height: onboardingData.height
+          });
+
+        if (statsError) throw statsError;
+      }
+
+      // Insert equipment if provided
+      if (onboardingData.equipment && onboardingData.equipment.length > 0) {
+        const equipmentData = onboardingData.equipment.map((eq: string) => ({
+          user_id: user.id,
+          equipment_name: eq
+        }));
+
+        const { error: equipmentError } = await supabase
+          .from('user_equipment')
+          .insert(equipmentData);
+
+        if (equipmentError) throw equipmentError;
+      }
+
+      toast({
+        title: "Welcome to AscendFit!",
+        description: "Your profile has been set up successfully.",
+      });
+      
+      navigate("/dashboard");
+    } catch (error: any) {
+      toast({
+        title: "Error",
+        description: error.message || "Failed to save preferences. Please try again.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsLoading(false);
     }
   };
 
