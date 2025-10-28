@@ -46,38 +46,80 @@ const AIAssistant = () => {
     setInput("");
     setIsTyping(true);
 
-    // Simulate AI response
-    setTimeout(() => {
-      const aiMessage: Message = {
-        id: (Date.now() + 1).toString(),
-        role: "assistant",
-        content: getAIResponse(text),
-      };
-      setMessages((prev) => [...prev, aiMessage]);
+    try {
+      // Call streaming chat function
+      const CHAT_URL = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/chat-assistant`;
+      
+      const response = await fetch(CHAT_URL, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${import.meta.env.VITE_SUPABASE_ANON_KEY}`,
+        },
+        body: JSON.stringify({ 
+          messages: [...messages.map(m => ({ role: m.role, content: m.content })), { role: 'user', content: text }]
+        }),
+      });
+
+      if (!response.ok || !response.body) {
+        throw new Error('Failed to get response from AI');
+      }
+
+      const reader = response.body.getReader();
+      const decoder = new TextDecoder();
+      let assistantContent = "";
+      let textBuffer = "";
+      let streamDone = false;
+      let assistantMessageId = (Date.now() + 1).toString();
+
+      // Create initial assistant message
+      setMessages(prev => [...prev, { id: assistantMessageId, role: "assistant", content: "" }]);
       setIsTyping(false);
-    }, 1000);
-  };
 
-  const getAIResponse = (prompt: string): string => {
-    const lowerPrompt = prompt.toLowerCase();
-    
-    if (lowerPrompt.includes("push-up") || lowerPrompt.includes("pushup")) {
-      return "For better push-up form:\n\n1. Keep your body in a straight line from head to heels\n2. Hands should be slightly wider than shoulder-width\n3. Lower until your chest nearly touches the floor\n4. Keep your core engaged throughout\n5. Breathe in on the way down, out on the way up\n\nStart with 3 sets of 10 reps and gradually increase as you get stronger!";
-    }
-    
-    if (lowerPrompt.includes("eat") || lowerPrompt.includes("nutrition")) {
-      return "Pre-workout nutrition tips:\n\n1. Eat 1-2 hours before exercise\n2. Include complex carbs (oats, whole grain bread)\n3. Add lean protein (eggs, Greek yogurt)\n4. Stay hydrated with water\n5. Avoid heavy, fatty foods\n\nGood options: Banana with peanut butter, oatmeal with berries, or Greek yogurt with granola.";
-    }
-    
-    if (lowerPrompt.includes("squat")) {
-      return "Squat technique tips:\n\n1. Feet shoulder-width apart, toes slightly out\n2. Keep chest up and core engaged\n3. Break at hips and knees simultaneously\n4. Lower until thighs are parallel to ground\n5. Push through heels to return\n6. Keep knees aligned with toes\n\nPractice with bodyweight first before adding resistance!";
-    }
-    
-    if (lowerPrompt.includes("progress")) {
-      return "Based on your recent activity, you're making great progress! Here's a summary:\n\n✓ Completed 18 workouts this month\n✓ Lost 2kg towards your goal\n✓ Improved workout consistency\n✓ Earned 3 new achievement badges\n\nKeep up the excellent work! Consider increasing workout intensity or duration for continued progress.";
-    }
+      while (!streamDone) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        textBuffer += decoder.decode(value, { stream: true });
 
-    return "That's a great question! I'm here to help with:\n\n• Exercise form and technique\n• Workout planning and scheduling\n• Nutrition and meal planning\n• Progress tracking and goals\n• Motivation and consistency tips\n\nFeel free to ask me anything specific about your fitness journey!";
+        let newlineIndex: number;
+        while ((newlineIndex = textBuffer.indexOf("\n")) !== -1) {
+          let line = textBuffer.slice(0, newlineIndex);
+          textBuffer = textBuffer.slice(newlineIndex + 1);
+
+          if (line.endsWith("\r")) line = line.slice(0, -1);
+          if (line.startsWith(":") || line.trim() === "") continue;
+          if (!line.startsWith("data: ")) continue;
+
+          const jsonStr = line.slice(6).trim();
+          if (jsonStr === "[DONE]") {
+            streamDone = true;
+            break;
+          }
+
+          try {
+            const parsed = JSON.parse(jsonStr);
+            const content = parsed.choices?.[0]?.delta?.content as string | undefined;
+            if (content) {
+              assistantContent += content;
+              setMessages(prev => 
+                prev.map(m => m.id === assistantMessageId ? { ...m, content: assistantContent } : m)
+              );
+            }
+          } catch {
+            textBuffer = line + "\n" + textBuffer;
+            break;
+          }
+        }
+      }
+    } catch (error) {
+      console.error('Error sending message:', error);
+      setMessages(prev => [...prev, {
+        id: Date.now().toString(),
+        role: "assistant",
+        content: "Sorry, I encountered an error. Please try again."
+      }]);
+      setIsTyping(false);
+    }
   };
 
   const handleQuickAction = (prompt: string) => {

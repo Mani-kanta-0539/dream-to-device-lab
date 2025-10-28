@@ -1,12 +1,72 @@
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
-import { Plus, Calendar as CalendarIcon } from "lucide-react";
+import { Plus, Calendar as CalendarIcon, Sparkles } from "lucide-react";
 import { WorkoutCard } from "@/components/workouts/WorkoutCard";
 import { WorkoutFilters } from "@/components/workouts/WorkoutFilters";
 import { WorkoutCalendar } from "@/components/workouts/WorkoutCalendar";
 import { Workout } from "@/types/workout";
+import { useState } from "react";
+import { useToast } from "@/hooks/use-toast";
+import { supabase } from "@/integrations/supabase/client";
+import { useAuth } from "@/contexts/AuthContext";
 
 const Workouts = () => {
+  const { toast } = useToast();
+  const { user } = useAuth();
+  const [isGenerating, setIsGenerating] = useState(false);
+  const handleGenerateWorkout = async () => {
+    if (!user) {
+      toast({
+        title: "Authentication Required",
+        description: "Please log in to generate a workout.",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    setIsGenerating(true);
+    try {
+      const { data: preferences } = await supabase
+        .from('user_preferences')
+        .select('fitness_level, goals, preferred_workout_duration, preferred_workout_types')
+        .eq('user_id', user.id)
+        .single();
+
+      const { data: equipment } = await supabase
+        .from('user_equipment')
+        .select('equipment_name')
+        .eq('user_id', user.id);
+
+      const { data, error } = await supabase.functions.invoke('generate-workout', {
+        body: {
+          fitnessLevel: preferences?.fitness_level || 'intermediate',
+          goals: preferences?.goals || ['general fitness'],
+          duration: preferences?.preferred_workout_duration || 30,
+          equipment: equipment?.map(e => e.equipment_name) || ['bodyweight'],
+          workoutType: preferences?.preferred_workout_types?.[0] || 'full body'
+        }
+      });
+
+      if (error) throw error;
+
+      if (data.success && data.workout) {
+        toast({
+          title: "Workout Generated!",
+          description: `Created "${data.workout.title}" workout plan.`,
+        });
+      }
+    } catch (error: any) {
+      console.error('Error generating workout:', error);
+      toast({
+        title: "Generation Failed",
+        description: error.message || "Failed to generate workout. Please try again.",
+        variant: "destructive"
+      });
+    } finally {
+      setIsGenerating(false);
+    }
+  };
+
   // Mock workout data
   const mockWorkouts: Workout[] = [
     {
@@ -75,6 +135,10 @@ const Workouts = () => {
               <Button variant="outline">
                 <CalendarIcon className="mr-2 h-4 w-4" />
                 Schedule
+              </Button>
+              <Button variant="outline" onClick={handleGenerateWorkout} disabled={isGenerating}>
+                <Sparkles className={`mr-2 h-4 w-4 ${isGenerating ? 'animate-pulse' : ''}`} />
+                {isGenerating ? 'Generating...' : 'Generate AI Workout'}
               </Button>
               <Button>
                 <Plus className="mr-2 h-4 w-4" />

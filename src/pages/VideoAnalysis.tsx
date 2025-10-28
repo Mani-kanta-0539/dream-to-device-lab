@@ -4,22 +4,98 @@ import { AnalysisHistory } from "@/components/video/AnalysisHistory";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { AlertCircle } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import { supabase } from "@/integrations/supabase/client";
+import { useNavigate } from "react-router-dom";
+import { useAuth } from "@/contexts/AuthContext";
 
 const VideoAnalysis = () => {
   const { toast } = useToast();
+  const navigate = useNavigate();
+  const { user } = useAuth();
   const [isAnalyzing, setIsAnalyzing] = useState(false);
 
-  const handleUpload = (file: File) => {
+  const handleUpload = async (file: File) => {
+    if (!user) {
+      toast({
+        title: "Authentication Required",
+        description: "Please log in to analyze videos.",
+        variant: "destructive"
+      });
+      return;
+    }
+
     setIsAnalyzing(true);
     
-    // Simulate analysis
-    setTimeout(() => {
-      setIsAnalyzing(false);
+    try {
+      // Upload video to storage
+      const fileExt = file.name.split('.').pop();
+      const fileName = `${Math.random()}.${fileExt}`;
+      const filePath = `${fileName}`;
+
+      const { data: uploadData, error: uploadError } = await supabase.storage
+        .from('analysis-videos')
+        .upload(filePath, file);
+
+      if (uploadError) throw uploadError;
+
+      // Get public URL
+      const { data: { publicUrl } } = supabase.storage
+        .from('analysis-videos')
+        .getPublicUrl(filePath);
+
+      // Create video analysis record
+      const { data: analysisRecord, error: recordError } = await supabase
+        .from('video_analyses')
+        .insert({
+          user_id: user.id,
+          video_url: publicUrl,
+          analysis_status: 'processing'
+        })
+        .select()
+        .single();
+
+      if (recordError) throw recordError;
+
+      // Call AI analysis function
+      const { data: analysisData, error: analysisError } = await supabase.functions.invoke('analyze-video', {
+        body: { 
+          videoUrl: publicUrl,
+          exerciseType: 'general' 
+        }
+      });
+
+      if (analysisError) throw analysisError;
+
+      // Update analysis record with results
+      await supabase
+        .from('video_analyses')
+        .update({
+          analysis_status: 'completed',
+          analysis_results: analysisData.analysis,
+          form_score: analysisData.analysis.formScore,
+          feedback: analysisData.analysis.feedback,
+          improvement_suggestions: analysisData.analysis.improvementSuggestions
+        })
+        .eq('id', analysisRecord.id);
+
       toast({
         title: "Analysis Complete!",
         description: "Your workout video has been analyzed successfully.",
       });
-    }, 3000);
+
+      // Navigate to results
+      navigate(`/analysis/${analysisRecord.id}`);
+
+    } catch (error: any) {
+      console.error('Error analyzing video:', error);
+      toast({
+        title: "Analysis Failed",
+        description: error.message || "Failed to analyze video. Please try again.",
+        variant: "destructive"
+      });
+    } finally {
+      setIsAnalyzing(false);
+    }
   };
 
   return (

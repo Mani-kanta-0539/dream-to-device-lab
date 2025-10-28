@@ -4,8 +4,15 @@ import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
 import { Badge } from "@/components/ui/badge";
 import { Apple, Droplets, Flame, RefreshCw } from "lucide-react";
+import { useState } from "react";
+import { useToast } from "@/hooks/use-toast";
+import { supabase } from "@/integrations/supabase/client";
+import { useAuth } from "@/contexts/AuthContext";
 
 const Nutrition = () => {
+  const { toast } = useToast();
+  const { user } = useAuth();
+  const [isGenerating, setIsGenerating] = useState(false);
   const dailyGoals = {
     calories: { current: 1850, target: 2200 },
     protein: { current: 120, target: 150 },
@@ -14,7 +21,7 @@ const Nutrition = () => {
     water: { current: 6, target: 8 },
   };
 
-  const meals = [
+  const [meals, setMeals] = useState([
     {
       name: "Breakfast",
       time: "8:00 AM",
@@ -43,7 +50,104 @@ const Nutrition = () => {
       calories: 200,
       protein: 15,
     },
-  ];
+  ]);
+
+  const handleGenerateMealPlan = async () => {
+    if (!user) {
+      toast({
+        title: "Authentication Required",
+        description: "Please log in to generate a meal plan.",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    setIsGenerating(true);
+    try {
+      // Get user preferences
+      const { data: preferences } = await supabase
+        .from('user_preferences')
+        .select('goals, dietary_restrictions')
+        .eq('user_id', user.id)
+        .single();
+
+      const { data, error } = await supabase.functions.invoke('generate-meal-plan', {
+        body: {
+          goals: preferences?.goals || ['general health'],
+          dietaryRestrictions: preferences?.dietary_restrictions || [],
+          calorieTarget: dailyGoals.calories.target,
+          preferences: 'balanced diet'
+        }
+      });
+
+      if (error) throw error;
+
+      if (data.success && data.mealPlan) {
+        // Save to database
+        const { data: planData } = await supabase
+          .from('meal_plans')
+          .insert({
+            user_id: user.id,
+            name: data.mealPlan.planName,
+            description: data.mealPlan.description,
+            start_date: new Date().toISOString().split('T')[0],
+            daily_calorie_target: data.mealPlan.totalCalories,
+            daily_protein_target: data.mealPlan.totalProtein,
+            daily_carbs_target: data.mealPlan.totalCarbs,
+            daily_fat_target: data.mealPlan.totalFat,
+            is_active: true
+          })
+          .select()
+          .single();
+
+        if (planData) {
+          // Save meals
+          const mealsToInsert = data.mealPlan.meals.map((meal: any, index: number) => ({
+            meal_plan_id: planData.id,
+            meal_type: meal.mealType,
+            day_of_week: new Date().getDay(),
+            name: meal.name,
+            description: meal.description,
+            calories: meal.calories,
+            protein: meal.protein,
+            carbs: meal.carbs,
+            fat: meal.fat,
+            ingredients: meal.ingredients,
+            instructions: meal.instructions
+          }));
+
+          await supabase.from('meals').insert(mealsToInsert);
+        }
+
+        // Update UI with new meals
+        const formattedMeals = data.mealPlan.meals.map((meal: any) => ({
+          name: meal.name,
+          time: meal.mealType === 'breakfast' ? '8:00 AM' : 
+                meal.mealType === 'lunch' ? '1:00 PM' : 
+                meal.mealType === 'dinner' ? '7:00 PM' : 'Throughout day',
+          items: meal.ingredients.slice(0, 3),
+          calories: meal.calories,
+          protein: meal.protein
+        }));
+
+        setMeals(formattedMeals);
+
+        toast({
+          title: "Meal Plan Generated!",
+          description: "Your personalized meal plan is ready.",
+        });
+      }
+    } catch (error: any) {
+      console.error('Error generating meal plan:', error);
+      toast({
+        title: "Generation Failed",
+        description: error.message || "Failed to generate meal plan. Please try again.",
+        variant: "destructive"
+      });
+    } finally {
+      setIsGenerating(false);
+    }
+  };
 
   return (
     <div className="min-h-screen bg-background">
@@ -57,9 +161,9 @@ const Nutrition = () => {
                 Track your meals and reach your nutrition goals
               </p>
             </div>
-            <Button>
-              <RefreshCw className="mr-2 h-4 w-4" />
-              Generate New Plan
+            <Button onClick={handleGenerateMealPlan} disabled={isGenerating}>
+              <RefreshCw className={`mr-2 h-4 w-4 ${isGenerating ? 'animate-spin' : ''}`} />
+              {isGenerating ? 'Generating...' : 'Generate New Plan'}
             </Button>
           </div>
 
