@@ -27,10 +27,10 @@ const VideoAnalysis = () => {
     setIsAnalyzing(true);
     
     try {
-      // Upload video to storage
+      // Upload video to storage - organize by user ID
       const fileExt = file.name.split('.').pop();
       const fileName = `${Math.random()}.${fileExt}`;
-      const filePath = `${fileName}`;
+      const filePath = `${user.id}/${fileName}`;
 
       const { data: uploadData, error: uploadError } = await supabase.storage
         .from('analysis-videos')
