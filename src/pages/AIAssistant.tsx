@@ -112,11 +112,14 @@ const AIAssistant = () => {
         }
       }
     } catch (error) {
-      console.error('Error sending message:', error);
+      if (import.meta.env.DEV) {
+        console.error('Error sending message:', error);
+      }
+      
       setMessages(prev => [...prev, {
         id: Date.now().toString(),
         role: "assistant",
-        content: "Sorry, I encountered an error. Please try again."
+        content: "Sorry, I encountered an error. Please try again. If you're offline, please check your internet connection."
       }]);
       setIsTyping(false);
     }

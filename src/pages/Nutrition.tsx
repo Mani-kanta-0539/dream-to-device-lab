@@ -138,12 +138,16 @@ const Nutrition = () => {
         });
       }
     } catch (error: any) {
-      console.error('Error generating meal plan:', error);
+      const errorMessage = error.message || "Failed to generate meal plan. Please try again.";
       toast({
         title: "Generation Failed",
-        description: error.message || "Failed to generate meal plan. Please try again.",
+        description: errorMessage,
         variant: "destructive"
       });
+      
+      if (import.meta.env.DEV) {
+        console.error('Error generating meal plan:', error);
+      }
     } finally {
       setIsGenerating(false);
     }

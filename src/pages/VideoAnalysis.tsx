@@ -87,12 +87,16 @@ const VideoAnalysis = () => {
       navigate(`/analysis/${analysisRecord.id}`);
 
     } catch (error: any) {
-      console.error('Error analyzing video:', error);
+      const errorMessage = error.message || "Failed to analyze video. Please try again.";
       toast({
         title: "Analysis Failed",
-        description: error.message || "Failed to analyze video. Please try again.",
+        description: errorMessage,
         variant: "destructive"
       });
+      
+      if (import.meta.env.DEV) {
+        console.error('Error analyzing video:', error);
+      }
     } finally {
       setIsAnalyzing(false);
     }

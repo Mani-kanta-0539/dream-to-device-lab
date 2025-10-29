@@ -1,0 +1,42 @@
+{
+  "name": "AscendFit - AI-Powered Fitness Platform",
+  "short_name": "AscendFit",
+  "description": "Transform your fitness journey with AI-powered video analysis, personalized workout plans, and custom nutrition guidance.",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#1E40AF",
+  "theme_color": "#1E40AF",
+  "orientation": "portrait",
+  "icons": [
+    {
+      "src": "/favicon.ico",
+      "sizes": "64x64 32x32 24x24 16x16",
+      "type": "image/x-icon"
+    }
+  ],
+  "categories": ["health", "fitness", "lifestyle"],
+  "screenshots": [],
+  "shortcuts": [
+    {
+      "name": "Start Workout",
+      "short_name": "Workout",
+      "description": "Browse and start a workout session",
+      "url": "/workouts",
+      "icons": []
+    },
+    {
+      "name": "Video Analysis",
+      "short_name": "Analysis",
+      "description": "Upload and analyze workout videos",
+      "url": "/video-analysis",
+      "icons": []
+    },
+    {
+      "name": "Progress",
+      "short_name": "Progress",
+      "description": "Track your fitness progress",
+      "url": "/progress",
+      "icons": []
+    }
+  ]
+}

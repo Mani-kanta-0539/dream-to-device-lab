@@ -56,12 +56,16 @@ const Workouts = () => {
         });
       }
     } catch (error: any) {
-      console.error('Error generating workout:', error);
+      const errorMessage = error.message || "Failed to generate workout. Please try again.";
       toast({
         title: "Generation Failed",
-        description: error.message || "Failed to generate workout. Please try again.",
+        description: errorMessage,
         variant: "destructive"
       });
+      
+      if (import.meta.env.DEV) {
+        console.error('Error generating workout:', error);
+      }
     } finally {
       setIsGenerating(false);
     }

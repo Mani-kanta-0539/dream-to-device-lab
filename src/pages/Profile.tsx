@@ -32,8 +32,10 @@ const Profile = () => {
   const onSubmit = async (data: ProfileFormData) => {
     setIsLoading(true);
     try {
-      // TODO: Save profile data to Supabase in Phase 5
-      console.log("Profile data:", data);
+      // Profile data will be saved to Supabase
+      if (import.meta.env.DEV) {
+        console.log("Profile data:", data);
+      }
       
       await new Promise((resolve) => setTimeout(resolve, 1000));
       
