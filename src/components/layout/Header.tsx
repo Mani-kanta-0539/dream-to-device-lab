@@ -2,6 +2,7 @@ import { useState } from "react";
 import { Link } from "react-router-dom";
 import { Menu, X, Dumbbell, User, LogOut } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { SidebarTrigger } from "@/components/ui/sidebar";
 import { useAuth } from "@/contexts/AuthContext";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { ThemeToggle } from "./ThemeToggle";
@@ -29,17 +30,20 @@ export const Header = () => {
   const navItems = [
     { name: "Home", path: "/" },
     { name: "Features", path: "/#features" },
-    { name: "About", path: "/about" },
-    { name: "Pricing", path: "/pricing" },
   ];
 
   return (
     <header className="sticky top-0 z-50 w-full border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
       <nav className="container mx-auto flex h-16 items-center justify-between px-4">
-        <Link to="/" className="flex items-center gap-2">
-          <Dumbbell className="h-8 w-8 text-primary" />
-          <span className="text-2xl font-bold text-primary">AscendFit</span>
-        </Link>
+        <div className="flex items-center gap-4">
+          <SidebarTrigger className="hover:bg-accent">
+            <Menu className="h-5 w-5" />
+          </SidebarTrigger>
+          <Link to="/" className="flex items-center gap-2">
+            <Dumbbell className="h-8 w-8 text-primary" />
+            <span className="text-2xl font-bold text-primary">AscendFit</span>
+          </Link>
+        </div>
 
         {/* Desktop Navigation */}
         <div className="hidden md:flex items-center gap-6">

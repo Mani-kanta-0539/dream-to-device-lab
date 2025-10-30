@@ -4,53 +4,70 @@ import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
 import { Badge } from "@/components/ui/badge";
 import { Apple, Droplets, Flame, RefreshCw } from "lucide-react";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
+import { useQuery } from "@tanstack/react-query";
 
 const Nutrition = () => {
   const { toast } = useToast();
   const { user } = useAuth();
   const [isGenerating, setIsGenerating] = useState(false);
-  const dailyGoals = {
-    calories: { current: 1850, target: 2200 },
-    protein: { current: 120, target: 150 },
-    carbs: { current: 180, target: 220 },
-    fats: { current: 55, target: 70 },
-    water: { current: 6, target: 8 },
-  };
+  const [dailyGoals, setDailyGoals] = useState({
+    calories: { current: 0, target: 2200 },
+    protein: { current: 0, target: 150 },
+    carbs: { current: 0, target: 220 },
+    fats: { current: 0, target: 70 },
+    water: { current: 0, target: 8 },
+  });
+  const [meals, setMeals] = useState([]);
 
-  const [meals, setMeals] = useState([
-    {
-      name: "Breakfast",
-      time: "8:00 AM",
-      items: ["Oatmeal with berries", "Greek yogurt", "Black coffee"],
-      calories: 420,
-      protein: 25,
+  const { data: mealPlanData, isLoading: isLoadingMealPlan } = useQuery({
+    queryKey: ["mealPlan", user?.id],
+    queryFn: async () => {
+      if (!user) return null;
+      const { data, error } = await supabase
+        .from("meal_plans")
+        .select("*, meals(*)")
+        .eq("user_id", user.id)
+        .eq("is_active", true)
+        .single();
+      if (error && error.code !== "PGRST116") { // Ignore no rows found error
+        throw new Error(error.message);
+      }
+      return data;
     },
-    {
-      name: "Lunch",
-      time: "1:00 PM",
-      items: ["Grilled chicken breast", "Brown rice", "Steamed broccoli"],
-      calories: 580,
-      protein: 48,
-    },
-    {
-      name: "Dinner",
-      time: "7:00 PM",
-      items: ["Salmon fillet", "Sweet potato", "Mixed greens salad"],
-      calories: 650,
-      protein: 42,
-    },
-    {
-      name: "Snacks",
-      time: "Throughout day",
-      items: ["Protein shake", "Apple", "Almonds"],
-      calories: 200,
-      protein: 15,
-    },
-  ]);
+    enabled: !!user,
+  });
+
+  useEffect(() => {
+    if (mealPlanData) {
+      const { meals: mealItems, daily_calorie_target, daily_protein_target, daily_carbs_target, daily_fat_target } = mealPlanData;
+
+      const formattedMeals = mealItems.map((meal) => ({
+        name: meal.name,
+        time: meal.meal_type === 'breakfast' ? '8:00 AM' : meal.meal_type === 'lunch' ? '1:00 PM' : meal.meal_type === 'dinner' ? '7:00 PM' : 'Throughout day',
+        items: meal.ingredients.slice(0, 3),
+        calories: meal.calories,
+        protein: meal.protein
+      }));
+      setMeals(formattedMeals);
+
+      const totalCalories = mealItems.reduce((acc, meal) => acc + meal.calories, 0);
+      const totalProtein = mealItems.reduce((acc, meal) => acc + meal.protein, 0);
+      const totalCarbs = mealItems.reduce((acc, meal) => acc + meal.carbs, 0);
+      const totalFats = mealItems.reduce((acc, meal) => acc + meal.fat, 0);
+
+      setDailyGoals(prev => ({
+        ...prev,
+        calories: { current: totalCalories, target: daily_calorie_target || prev.calories.target },
+        protein: { current: totalProtein, target: daily_protein_target || prev.protein.target },
+        carbs: { current: totalCarbs, target: daily_carbs_target || prev.carbs.target },
+        fats: { current: totalFats, target: daily_fat_target || prev.fats.target }
+      }));
+    }
+  }, [mealPlanData]);
 
   const handleGenerateMealPlan = async () => {
     if (!user) {
@@ -250,33 +267,39 @@ const Nutrition = () => {
                   <CardTitle>Today's Meal Plan</CardTitle>
                 </CardHeader>
                 <CardContent className="space-y-4">
-                  {meals.map((meal) => (
-                    <div
-                      key={meal.name}
-                      className="p-4 rounded-lg border hover:bg-muted/50 transition-colors"
-                    >
-                      <div className="flex items-start justify-between mb-2">
-                        <div>
-                          <h3 className="font-semibold">{meal.name}</h3>
-                          <p className="text-sm text-muted-foreground">{meal.time}</p>
-                        </div>
-                        <div className="text-right">
-                          <div className="text-lg font-bold">{meal.calories} cal</div>
-                          <div className="text-sm text-muted-foreground">
-                            {meal.protein}g protein
+                  {isLoadingMealPlan ? (
+                    <p>Loading meal plan...</p>
+                  ) : meals.length > 0 ? (
+                    meals.map((meal) => (
+                      <div
+                        key={meal.name}
+                        className="p-4 rounded-lg border hover:bg-muted/50 transition-colors"
+                      >
+                        <div className="flex items-start justify-between mb-2">
+                          <div>
+                            <h3 className="font-semibold">{meal.name}</h3>
+                            <p className="text-sm text-muted-foreground">{meal.time}</p>
+                          </div>
+                          <div className="text-right">
+                            <div className="text-lg font-bold">{meal.calories} cal</div>
+                            <div className="text-sm text-muted-foreground">
+                              {meal.protein}g protein
+                            </div>
                           </div>
                         </div>
+                        <ul className="space-y-1">
+                          {meal.items.map((item, index) => (
+                            <li key={index} className="text-sm flex items-center gap-2">
+                              <Apple className="h-3 w-3 text-primary" />
+                              {item}
+                            </li>
+                          ))}
+                        </ul>
                       </div>
-                      <ul className="space-y-1">
-                        {meal.items.map((item, index) => (
-                          <li key={index} className="text-sm flex items-center gap-2">
-                            <Apple className="h-3 w-3 text-primary" />
-                            {item}
-                          </li>
-                        ))}
-                      </ul>
-                    </div>
-                  ))}
+                    ))
+                  ) : (
+                    <p>No active meal plan found. Generate a new one to get started!</p>
+                  )}
                 </CardContent>
               </Card>
             </div>
