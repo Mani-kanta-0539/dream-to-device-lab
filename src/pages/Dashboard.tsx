@@ -8,7 +8,7 @@ import { Weight, Dumbbell, Flame, TrendingUp } from "lucide-react";
 
 const Dashboard = () => {
   return (
-    <div className="min-h-screen bg-background">
+    <div className="bg-background">
       <div className="container mx-auto px-4 py-8">
         <div className="space-y-6">
           {/* Welcome Section */}
