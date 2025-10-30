@@ -1,3 +1,4 @@
+import "https://deno.land/x/xhr@0.1.0/mod.ts";
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 
 const corsHeaders = {
@@ -20,59 +21,101 @@ serve(async (req) => {
       );
     }
 
-    const LOVABLE_API_KEY = Deno.env.get('LOVABLE_API_KEY');
-    if (!LOVABLE_API_KEY) {
-      throw new Error('LOVABLE_API_KEY is not configured');
+    const GEMINI_API_KEY = Deno.env.get('GEMINI_API_KEY');
+    if (!GEMINI_API_KEY) {
+      throw new Error('GEMINI_API_KEY is not configured');
     }
 
     console.log('Chat request with', messages.length, 'messages');
 
-    const response = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
+    // Format messages for Gemini API
+    const formattedMessages = messages.map(msg => ({
+      role: msg.role === 'assistant' ? 'model' : 'user',
+      parts: [{ text: msg.content }]
+    }));
+
+    // Add system message as first user message
+    formattedMessages.unshift({
+      role: 'user',
+      parts: [{ text: `You are AscendFit AI, a knowledgeable and motivating fitness assistant. You help users with:
+- Exercise form and technique guidance
+- Workout planning and modifications
+- Nutrition advice and meal planning
+- Motivation and fitness tips
+- Progress tracking and goal setting
+
+Be encouraging, clear, and practical in your responses. Keep answers concise unless detailed explanations are requested.` }]
+    });
+
+    const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash-exp:streamGenerateContent?key=${GEMINI_API_KEY}`, {
       method: 'POST',
       headers: {
-        'Authorization': `Bearer ${LOVABLE_API_KEY}`,
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        model: 'google/gemini-2.5-flash',
-        messages: [
-          {
-            role: 'system',
-            content: `You are AscendFit AI, a knowledgeable and motivating fitness assistant. You help users with:
-            - Exercise form and technique guidance
-            - Workout planning and modifications
-            - Nutrition advice and meal planning
-            - Motivation and fitness tips
-            - Progress tracking and goal setting
-            
-            Be encouraging, clear, and practical in your responses. Keep answers concise unless detailed explanations are requested.`
-          },
-          ...messages
-        ],
-        stream: true,
+        contents: formattedMessages,
+        generationConfig: {
+          temperature: 0.7,
+          maxOutputTokens: 2048,
+        }
       }),
     });
 
     if (!response.ok) {
-      if (response.status === 429) {
-        return new Response(
-          JSON.stringify({ error: 'Rate limit exceeded. Please try again later.' }), 
-          { status: 429, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-        );
-      }
-      if (response.status === 402) {
-        return new Response(
-          JSON.stringify({ error: 'Payment required. Please add credits to your workspace.' }), 
-          { status: 402, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-        );
-      }
       const errorText = await response.text();
-      console.error('AI Gateway error:', response.status, errorText);
-      throw new Error(`AI Gateway error: ${response.status}`);
+      console.error('Gemini API error:', response.status, errorText);
+      return new Response(
+        JSON.stringify({ error: `Gemini API error: ${response.status}` }), 
+        { status: response.status, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
     }
 
-    // Stream the response back to the client
-    return new Response(response.body, {
+    // Transform Gemini streaming response to SSE format
+    const reader = response.body?.getReader();
+    const encoder = new TextEncoder();
+    const decoder = new TextDecoder();
+
+    const stream = new ReadableStream({
+      async start(controller) {
+        try {
+          while (true) {
+            const { done, value } = await reader!.read();
+            if (done) {
+              controller.enqueue(encoder.encode('data: [DONE]\n\n'));
+              controller.close();
+              break;
+            }
+
+            const chunk = decoder.decode(value);
+            const lines = chunk.split('\n').filter(line => line.trim());
+            
+            for (const line of lines) {
+              try {
+                const data = JSON.parse(line);
+                const text = data.candidates?.[0]?.content?.parts?.[0]?.text;
+                
+                if (text) {
+                  const sseData = {
+                    choices: [{
+                      delta: { content: text },
+                      index: 0
+                    }]
+                  };
+                  controller.enqueue(encoder.encode(`data: ${JSON.stringify(sseData)}\n\n`));
+                }
+              } catch (e) {
+                console.error('Error parsing chunk:', e);
+              }
+            }
+          }
+        } catch (error) {
+          console.error('Stream error:', error);
+          controller.error(error);
+        }
+      }
+    });
+
+    return new Response(stream, {
       headers: { 
         ...corsHeaders, 
         'Content-Type': 'text/event-stream',

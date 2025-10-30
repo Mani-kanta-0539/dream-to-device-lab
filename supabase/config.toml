@@ -1,16 +1,16 @@
 project_id = "ytywpxlbodpkbelowmxd"
 
 [functions.analyze-video]
-verify_jwt = true
+verify_jwt = false
 
 [functions.generate-workout]
-verify_jwt = true
+verify_jwt = false
 
 [functions.generate-meal-plan]
-verify_jwt = true
+verify_jwt = false
 
 [functions.chat-assistant]
-verify_jwt = true
+verify_jwt = false
 
 [functions.analyze-posture-realtime]
-verify_jwt = true
+verify_jwt = false
