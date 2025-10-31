@@ -10,6 +10,14 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { useQuery } from "@tanstack/react-query";
 
+interface Meal {
+  name: string;
+  time: string;
+  items: string[];
+  calories: number;
+  protein: number;
+}
+
 const Nutrition = () => {
   const { toast } = useToast();
   const { user } = useAuth();
@@ -21,6 +29,7 @@ const Nutrition = () => {
     fats: { current: 0, target: 70 },
     water: { current: 0, target: 8 },
   });
+  const [meals, setMeals] = useState<Meal[]>([]);
   const [meals, setMeals] = useState([]);
 
   const { data: mealPlanData, isLoading: isLoadingMealPlan } = useQuery({
@@ -119,9 +128,9 @@ const Nutrition = () => {
 
         if (planData) {
           // Save meals
-          const mealsToInsert = data.mealPlan.meals.map((meal: any, index: number) => ({
+          const mealsToInsert = data.mealPlan.meals.map((meal: Meal, index: number) => ({
             meal_plan_id: planData.id,
-            meal_type: meal.mealType,
+            meal_type: meal.time,
             day_of_week: new Date().getDay(),
             name: meal.name,
             description: meal.description,
@@ -137,12 +146,10 @@ const Nutrition = () => {
         }
 
         // Update UI with new meals
-        const formattedMeals = data.mealPlan.meals.map((meal: any) => ({
+        const formattedMeals: Meal[] = data.mealPlan.meals.map((meal: Meal) => ({
           name: meal.name,
-          time: meal.mealType === 'breakfast' ? '8:00 AM' : 
-                meal.mealType === 'lunch' ? '1:00 PM' : 
-                meal.mealType === 'dinner' ? '7:00 PM' : 'Throughout day',
-          items: meal.ingredients.slice(0, 3),
+          time: meal.time,
+          items: meal.items.slice(0, 3),
           calories: meal.calories,
           protein: meal.protein
         }));
@@ -154,8 +161,8 @@ const Nutrition = () => {
           description: "Your personalized meal plan is ready.",
         });
       }
-    } catch (error: any) {
-      const errorMessage = error.message || "Failed to generate meal plan. Please try again.";
+    } catch (error: unknown) {
+      const errorMessage = error instanceof Error ? error.message : "Failed to generate meal plan. Please try again.";
       toast({
         title: "Generation Failed",
         description: errorMessage,

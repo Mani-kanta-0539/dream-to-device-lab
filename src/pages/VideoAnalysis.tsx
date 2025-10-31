@@ -86,8 +86,8 @@ const VideoAnalysis = () => {
       // Navigate to results
       navigate(`/analysis/${analysisRecord.id}`);
 
-    } catch (error: any) {
-      const errorMessage = error.message || "Failed to analyze video. Please try again.";
+    } catch (error: unknown) {
+      const errorMessage = error instanceof Error ? error.message : "Failed to analyze video. Please try again.";
       toast({
         title: "Analysis Failed",
         description: errorMessage,
