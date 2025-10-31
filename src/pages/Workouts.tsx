@@ -55,8 +55,8 @@ const Workouts = () => {
           description: `Created "${data.workout.title}" workout plan.`,
         });
       }
-    } catch (error: any) {
-      const errorMessage = error.message || "Failed to generate workout. Please try again.";
+    } catch (error: unknown) {
+      const errorMessage = error instanceof Error ? error.message : "Failed to generate workout. Please try again.";
       toast({
         title: "Generation Failed",
         description: errorMessage,

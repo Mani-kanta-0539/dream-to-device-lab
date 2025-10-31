@@ -15,6 +15,17 @@ import { DietaryPreferencesStep } from "@/components/onboarding/DietaryPreferenc
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 
+interface OnboardingData {
+  fitnessLevel?: 'beginner' | 'intermediate' | 'advanced';
+  goals?: string[];
+  weight?: number;
+  height?: number;
+  workoutTypes?: string[];
+  workoutDuration?: number;
+  dietaryRestrictions?: string[];
+  equipment?: string[];
+}
+
 const steps = [
   { title: "Fitness Level", description: "Tell us about your experience" },
   { title: "Goals", description: "What do you want to achieve?" },
@@ -25,7 +36,7 @@ const steps = [
 
 const Onboarding = () => {
   const [currentStep, setCurrentStep] = useState(0);
-  const [onboardingData, setOnboardingData] = useState<any>({});
+  const [onboardingData, setOnboardingData] = useState<OnboardingData>({});
   const [isLoading, setIsLoading] = useState(false);
   const navigate = useNavigate();
   const { toast } = useToast();
@@ -33,7 +44,7 @@ const Onboarding = () => {
 
   const progress = ((currentStep + 1) / steps.length) * 100;
 
-  const handleNext = (data: any) => {
+  const handleNext = (data: Partial<OnboardingData>) => {
     setOnboardingData({ ...onboardingData, ...data });
     
     if (currentStep < steps.length - 1) {
@@ -109,10 +120,11 @@ const Onboarding = () => {
       });
       
       navigate("/dashboard");
-    } catch (error: any) {
+    } catch (error: unknown) {
+      const errorMessage = error instanceof Error ? error.message : "Failed to save preferences. Please try again.";
       toast({
         title: "Error",
-        description: error.message || "Failed to save preferences. Please try again.",
+        description: errorMessage,
         variant: "destructive",
       });
     } finally {

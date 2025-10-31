@@ -4,43 +4,34 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
 import { ChevronLeft, CheckCircle2, AlertCircle, XCircle } from "lucide-react";
+import { useQuery } from "@tanstack/react-query";
+import { supabase } from "@/integrations/supabase/client";
+
+interface FeedbackItem {
+  category: string;
+  score: number;
+  status: "excellent" | "good" | "needs-improvement";
+  comments: string;
+}
 
 const AnalysisResults = () => {
   const { id } = useParams();
   const navigate = useNavigate();
 
-  const mockResults = {
-    videoName: "Morning Workout Session.mp4",
-    overallScore: 87,
-    duration: "00:12:34",
-    exercisesDetected: 8,
-    feedback: [
-      {
-        category: "Posture",
-        score: 92,
-        status: "excellent" as const,
-        comments: "Excellent spine alignment throughout most exercises",
-      },
-      {
-        category: "Form",
-        score: 85,
-        status: "good" as const,
-        comments: "Good overall form with minor adjustments needed",
-      },
-      {
-        category: "Range of Motion",
-        score: 78,
-        status: "needs-improvement" as const,
-        comments: "Consider increasing depth on squats for better results",
-      },
-    ],
-    suggestions: [
-      "Focus on keeping your core engaged during push-ups",
-      "Increase squat depth to parallel or below for optimal glute activation",
-      "Maintain neutral spine position during deadlift movements",
-      "Consider slowing down the eccentric phase for better muscle engagement",
-    ],
-  };
+  const { data: analysis, isLoading } = useQuery({
+    queryKey: ["analysisResult", id],
+    queryFn: async () => {
+      if (!id) return null;
+      const { data, error } = await supabase
+        .from("video_analyses")
+        .select("*")
+        .eq("id", id)
+        .single();
+      if (error) throw new Error(error.message);
+      return data;
+    },
+    enabled: !!id,
+  });
 
   const getStatusColor = (status: string) => {
     switch (status) {
@@ -80,81 +71,83 @@ const AnalysisResults = () => {
           Back to Video Analysis
         </Button>
 
-        <div className="space-y-6">
-          {/* Header */}
-          <div className="flex items-center justify-between">
-            <div>
-              <h1 className="text-3xl font-bold mb-2">Analysis Results</h1>
-              <p className="text-muted-foreground">{mockResults.videoName}</p>
-            </div>
-            <div className="text-center">
-              <div className="text-5xl font-bold text-primary mb-1">
-                {mockResults.overallScore}
+        {isLoading ? (
+          <p>Loading analysis results...</p>
+        ) : !analysis ? (
+          <p>Analysis not found.</p>
+        ) : (
+          <div className="space-y-6">
+            {/* Header */}
+            <div className="flex items-center justify-between">
+              <div>
+                <h1 className="text-3xl font-bold mb-2">Analysis Results</h1>
+                <p className="text-muted-foreground">
+                  {analysis.video_url.split("/").pop()}
+                </p>
               </div>
-              <p className="text-sm text-muted-foreground">Overall Score</p>
+              <div className="text-center">
+                <div className="text-5xl font-bold text-primary mb-1">
+                  {analysis.form_score}
+                </div>
+                <p className="text-sm text-muted-foreground">Overall Score</p>
+              </div>
             </div>
-          </div>
 
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-            {/* Main Content */}
-            <div className="lg:col-span-2 space-y-6">
-              {/* Video Player */}
-              <Card>
-                <CardContent className="p-6">
-                  <div className="aspect-video rounded-lg bg-gradient-to-br from-primary/20 to-accent/20 flex items-center justify-center mb-4">
-                    <p className="text-muted-foreground">Video Player with Analysis Overlay</p>
-                  </div>
-                  <div className="flex gap-4 text-sm text-muted-foreground">
-                    <span>Duration: {mockResults.duration}</span>
-                    <span>•</span>
-                    <span>Exercises: {mockResults.exercisesDetected}</span>
-                  </div>
-                </CardContent>
-              </Card>
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+              {/* Main Content */}
+              <div className="lg:col-span-2 space-y-6">
+                {/* Video Player */}
+                <Card>
+                  <CardContent className="p-6">
+                    <div className="aspect-video rounded-lg bg-gradient-to-br from-primary/20 to-accent/20 flex items-center justify-center mb-4">
+                      <video src={analysis.video_url} controls className="w-full h-full rounded-lg" />
+                    </div>
+                  </CardContent>
+                </Card>
 
-              {/* Detailed Feedback */}
-              <Card>
-                <CardHeader>
-                  <CardTitle>Detailed Feedback</CardTitle>
-                </CardHeader>
-                <CardContent className="space-y-6">
-                  {mockResults.feedback.map((item, index) => (
-                    <div key={index} className="space-y-2">
-                      <div className="flex items-center justify-between">
-                        <div className="flex items-center gap-2">
-                          <span className={getStatusColor(item.status)}>
-                            {getStatusIcon(item.status)}
-                          </span>
-                          <h3 className="font-semibold">{item.category}</h3>
+                {/* Detailed Feedback */}
+                <Card>
+                  <CardHeader>
+                    <CardTitle>Detailed Feedback</CardTitle>
+                  </CardHeader>
+                  <CardContent className="space-y-6">
+                    {analysis.feedback.map((item: FeedbackItem, index: number) => (
+                      <div key={index} className="space-y-2">
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center gap-2">
+                            <span className={getStatusColor(item.status)}>
+                              {getStatusIcon(item.status)}
+                            </span>
+                            <h3 className="font-semibold">{item.category}</h3>
+                          </div>
+                          <span className="text-2xl font-bold">{item.score}</span>
                         </div>
-                        <span className="text-2xl font-bold">{item.score}</span>
+                        <Progress value={item.score} className="h-2" />
+                        <p className="text-sm text-muted-foreground">{item.comments}</p>
                       </div>
-                      <Progress value={item.score} className="h-2" />
-                      <p className="text-sm text-muted-foreground">{item.comments}</p>
-                    </div>
-                  ))}
-                </CardContent>
-              </Card>
-            </div>
+                    ))}
+                  </CardContent>
+                </Card>
+              </div>
 
-            {/* Sidebar */}
-            <div className="space-y-6">
-              {/* Improvement Suggestions */}
-              <Card>
-                <CardHeader>
-                  <CardTitle>Improvement Suggestions</CardTitle>
-                </CardHeader>
-                <CardContent className="space-y-3">
-                  {mockResults.suggestions.map((suggestion, index) => (
-                    <div key={index} className="flex gap-2">
-                      <span className="flex-shrink-0 w-6 h-6 rounded-full bg-primary/10 flex items-center justify-center text-xs font-medium">
-                        {index + 1}
-                      </span>
-                      <p className="text-sm">{suggestion}</p>
-                    </div>
-                  ))}
-                </CardContent>
-              </Card>
+              {/* Sidebar */}
+              <div className="space-y-6">
+                {/* Improvement Suggestions */}
+                <Card>
+                  <CardHeader>
+                    <CardTitle>Improvement Suggestions</CardTitle>
+                  </CardHeader>
+                  <CardContent className="space-y-3">
+                    {analysis.improvement_suggestions.map((suggestion: string, index: number) => (
+                      <div key={index} className="flex gap-2">
+                        <span className="flex-shrink-0 w-6 h-6 rounded-full bg-primary/10 flex items-center justify-center text-xs font-medium">
+                          {index + 1}
+                        </span>
+                        <p className="text-sm">{suggestion}</p>
+                      </div>
+                    ))}
+                  </CardContent>
+                </Card>
 
               {/* Actions */}
               <Card>
@@ -169,8 +162,9 @@ const AnalysisResults = () => {
                 </CardContent>
               </Card>
             </div>
+            </div>
           </div>
-        </div>
+        )}
       </div>
     </div>
   );

@@ -4,31 +4,53 @@ import { GoalTracker } from "@/components/progress/GoalTracker";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Download, Calendar } from "lucide-react";
+import { useQuery } from "@tanstack/react-query";
+import { supabase } from "@/integrations/supabase/client";
+import { useAuth } from "@/contexts/AuthContext";
+import { useEffect, useState } from "react";
 
 const Progress = () => {
-  const weightData = Array.from({ length: 12 }, (_, i) => ({
-    date: new Date(Date.now() - (11 - i) * 7 * 86400000).toLocaleDateString("en-US", {
-      month: "short",
-      day: "numeric",
-    }),
-    value: 78 - i * 0.5 + Math.random() * 2,
-  }));
+  const { user } = useAuth();
+  const [weightData, setWeightData] = useState([]);
+  const [workoutData, setWorkoutData] = useState([]);
+  const [caloriesData, setCaloriesData] = useState([]);
 
-  const workoutData = Array.from({ length: 12 }, (_, i) => ({
-    date: new Date(Date.now() - (11 - i) * 7 * 86400000).toLocaleDateString("en-US", {
-      month: "short",
-      day: "numeric",
-    }),
-    value: Math.floor(3 + Math.random() * 4),
-  }));
+  const { data: progressData, isLoading: isLoadingProgress } = useQuery({
+    queryKey: ["progress", user?.id],
+    queryFn: async () => {
+      if (!user) return null;
+      const { data, error } = await supabase
+        .from("progress")
+        .select("date, weight, calories_burned, workout_duration")
+        .eq("user_id", user.id)
+        .order("date", { ascending: true });
+      if (error) throw new Error(error.message);
+      return data;
+    },
+    enabled: !!user,
+  });
 
-  const caloriesData = Array.from({ length: 12 }, (_, i) => ({
-    date: new Date(Date.now() - (11 - i) * 7 * 86400000).toLocaleDateString("en-US", {
-      month: "short",
-      day: "numeric",
-    }),
-    value: Math.floor(2200 + Math.random() * 600),
-  }));
+  useEffect(() => {
+    if (progressData) {
+      const formattedWeightData = progressData.map((d) => ({
+        date: new Date(d.date).toLocaleDateString("en-US", { month: "short", day: "numeric" }),
+        value: d.weight,
+      }));
+      setWeightData(formattedWeightData);
+
+      const formattedWorkoutData = progressData.map((d) => ({
+        date: new Date(d.date).toLocaleDateString("en-US", { month: "short", day: "numeric" }),
+        value: d.workout_duration,
+      }));
+      setWorkoutData(formattedWorkoutData);
+
+      const formattedCaloriesData = progressData.map((d) => ({
+        date: new Date(d.date).toLocaleDateString("en-US", { month: "short", day: "numeric" }),
+        value: d.calories_burned,
+      }));
+      setCaloriesData(formattedCaloriesData);
+    }
+  }, [progressData]);
 
   return (
     <div className="min-h-screen bg-background">
@@ -65,18 +87,30 @@ const Progress = () => {
             <TabsContent value="overview" className="space-y-6">
               <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
                 <div className="lg:col-span-2 space-y-6">
-                  <StatsChart
-                    title="Weight Progress"
-                    data={weightData}
-                    color="#10B981"
-                    unit="kg"
-                  />
-                  <StatsChart
-                    title="Weekly Workouts"
-                    data={workoutData}
-                    color="#F97316"
-                    unit=" workouts"
-                  />
+                  <Card>
+                    <CardHeader>
+                      <CardTitle>Weight Progress</CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                      {isLoadingProgress ? (
+                        <p>Loading...</p>
+                      ) : (
+                        <StatsChart data={weightData} color="#10B981" unit="kg" />
+                      )}
+                    </CardContent>
+                  </Card>
+                  <Card>
+                    <CardHeader>
+                      <CardTitle>Weekly Workouts</CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                      {isLoadingProgress ? (
+                        <p>Loading...</p>
+                      ) : (
+                        <StatsChart data={workoutData} color="#F97316" unit=" workouts" />
+                      )}
+                    </CardContent>
+                  </Card>
                 </div>
                 <div>
                   <GoalTracker />
@@ -85,12 +119,18 @@ const Progress = () => {
             </TabsContent>
 
             <TabsContent value="weight" className="space-y-6">
-              <StatsChart
-                title="Weight Tracking"
-                data={weightData}
-                color="#10B981"
-                unit="kg"
-              />
+              <Card>
+                <CardHeader>
+                  <CardTitle>Weight Tracking</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  {isLoadingProgress ? (
+                    <p>Loading...</p>
+                  ) : (
+                    <StatsChart data={weightData} color="#10B981" unit="kg" />
+                  )}
+                </CardContent>
+              </Card>
               <Card>
                 <CardHeader>
                   <CardTitle>Body Measurements</CardTitle>
@@ -114,21 +154,33 @@ const Progress = () => {
             </TabsContent>
 
             <TabsContent value="workouts">
-              <StatsChart
-                title="Workout Frequency"
-                data={workoutData}
-                color="#F97316"
-                unit=" sessions"
-              />
+              <Card>
+                <CardHeader>
+                  <CardTitle>Workout Frequency</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  {isLoadingProgress ? (
+                    <p>Loading...</p>
+                  ) : (
+                    <StatsChart data={workoutData} color="#F97316" unit=" sessions" />
+                  )}
+                </CardContent>
+              </Card>
             </TabsContent>
 
             <TabsContent value="nutrition">
-              <StatsChart
-                title="Daily Calorie Intake"
-                data={caloriesData}
-                color="#1E40AF"
-                unit=" cal"
-              />
+              <Card>
+                <CardHeader>
+                  <CardTitle>Daily Calorie Intake</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  {isLoadingProgress ? (
+                    <p>Loading...</p>
+                  ) : (
+                    <StatsChart data={caloriesData} color="#1E40AF" unit=" cal" />
+                  )}
+                </CardContent>
+              </Card>
             </TabsContent>
           </Tabs>
         </div>

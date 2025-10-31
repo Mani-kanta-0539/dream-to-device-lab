@@ -3,13 +3,15 @@ import { toast } from '@/hooks/use-toast';
 export interface AppError {
   code: string;
   message: string;
-  details?: any;
+  details?: unknown;
 }
 
-export const handleApiError = (error: any): AppError => {
+export const handleApiError = (error: unknown): AppError => {
+  const errorMessage = error instanceof Error ? error.message : String(error);
+
   // Supabase errors
-  if (error?.message) {
-    if (error.message.includes('JWT')) {
+  if (errorMessage) {
+    if (errorMessage.includes('JWT')) {
       return {
         code: 'AUTH_ERROR',
         message: 'Your session has expired. Please log in again.',
@@ -54,12 +56,12 @@ export const handleApiError = (error: any): AppError => {
   // Default error
   return {
     code: 'UNKNOWN_ERROR',
-    message: error?.message || 'An unexpected error occurred. Please try again.',
+    message: errorMessage || 'An unexpected error occurred. Please try again.',
     details: error
   };
 };
 
-export const showErrorToast = (error: any) => {
+export const showErrorToast = (error: unknown) => {
   const appError = handleApiError(error);
   
   toast({
