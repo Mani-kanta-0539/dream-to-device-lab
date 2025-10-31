@@ -41,6 +41,9 @@ export const Header = () => {
               <Menu className="h-5 w-5" />
             </SidebarTrigger>
           )}
+          <SidebarTrigger className="hover:bg-accent">
+            <Menu className="h-5 w-5" />
+          </SidebarTrigger>
           <Link to="/" className="flex items-center gap-2">
             <Dumbbell className="h-8 w-8 text-primary" />
             <span className="text-2xl font-bold text-primary">AscendFit</span>

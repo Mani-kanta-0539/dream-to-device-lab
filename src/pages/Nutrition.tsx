@@ -30,6 +30,7 @@ const Nutrition = () => {
     water: { current: 0, target: 8 },
   });
   const [meals, setMeals] = useState<Meal[]>([]);
+  const [meals, setMeals] = useState([]);
 
   const { data: mealPlanData, isLoading: isLoadingMealPlan } = useQuery({
     queryKey: ["mealPlan", user?.id],
