@@ -65,7 +65,15 @@ const AIAssistant = () => {
       });
 
       if (!response.ok || !response.body) {
-        throw new Error('Failed to get response from AI');
+        const errorData = await response.json().catch(() => ({}));
+        
+        if (response.status === 429) {
+          throw new Error('Rate limit exceeded. Please wait a moment and try again.');
+        } else if (response.status === 402) {
+          throw new Error('Credits required. Please add credits to your workspace to continue using AI features.');
+        } else {
+          throw new Error(errorData.error || 'Failed to get response from AI');
+        }
       }
 
       const reader = response.body.getReader();

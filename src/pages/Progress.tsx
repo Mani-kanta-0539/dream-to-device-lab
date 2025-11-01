@@ -19,13 +19,48 @@ const Progress = () => {
     queryKey: ["progress", user?.id],
     queryFn: async () => {
       if (!user) return null;
-      const { data, error } = await supabase
-        .from("progress")
-        .select("date, weight, calories_burned, workout_duration")
+      
+      // Get workout sessions for workout duration and calories
+      const { data: workoutData, error: workoutError } = await supabase
+        .from("workout_sessions")
+        .select("date, duration, calories_burned")
         .eq("user_id", user.id)
         .order("date", { ascending: true });
-      if (error) throw new Error(error.message);
-      return data;
+      
+      if (workoutError) throw new Error(workoutError.message);
+      
+      // Get user stats for weight tracking
+      const { data: statsData, error: statsError } = await supabase
+        .from("user_stats")
+        .select("date, weight")
+        .eq("user_id", user.id)
+        .order("date", { ascending: true });
+      
+      if (statsError) throw new Error(statsError.message);
+      
+      // Merge the data by date
+      const dateMap = new Map();
+      
+      workoutData?.forEach(w => {
+        const dateKey = w.date;
+        if (!dateMap.has(dateKey)) {
+          dateMap.set(dateKey, { date: dateKey });
+        }
+        const entry = dateMap.get(dateKey);
+        entry.workout_duration = w.duration;
+        entry.calories_burned = w.calories_burned;
+      });
+      
+      statsData?.forEach(s => {
+        const dateKey = s.date;
+        if (!dateMap.has(dateKey)) {
+          dateMap.set(dateKey, { date: dateKey });
+        }
+        const entry = dateMap.get(dateKey);
+        entry.weight = s.weight;
+      });
+      
+      return Array.from(dateMap.values());
     },
     enabled: !!user,
   });

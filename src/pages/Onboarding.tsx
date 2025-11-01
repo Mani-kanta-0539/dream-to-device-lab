@@ -135,15 +135,15 @@ const Onboarding = () => {
   const renderStep = () => {
     switch (currentStep) {
       case 0:
-        return <FitnessLevelStep onNext={handleNext} />;
+        return <FitnessLevelStep onNext={(data: any) => handleNext(data)} />;
       case 1:
-        return <GoalSelectionStep onNext={handleNext} />;
+        return <GoalSelectionStep onNext={(data: any) => handleNext(data)} />;
       case 2:
-        return <PersonalStatsStep onNext={handleNext} />;
+        return <PersonalStatsStep onNext={(data: any) => handleNext(data)} />;
       case 3:
-        return <WorkoutPreferencesStep onNext={handleNext} />;
+        return <WorkoutPreferencesStep onNext={(data: any) => handleNext(data)} />;
       case 4:
-        return <DietaryPreferencesStep onNext={handleNext} />;
+        return <DietaryPreferencesStep onNext={(data: any) => handleNext(data)} />;
       default:
         return null;
     }

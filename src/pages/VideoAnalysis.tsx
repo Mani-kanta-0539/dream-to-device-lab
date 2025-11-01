@@ -88,11 +88,35 @@ const VideoAnalysis = () => {
 
     } catch (error: unknown) {
       const errorMessage = error instanceof Error ? error.message : "Failed to analyze video. Please try again.";
-      toast({
-        title: "Analysis Failed",
-        description: errorMessage,
-        variant: "destructive"
-      });
+      
+      // Handle specific error codes
+      if (error instanceof Error) {
+        if (error.message.includes('429') || error.message.includes('Rate limit')) {
+          toast({
+            title: "Rate Limit Exceeded",
+            description: "Too many requests. Please wait a moment and try again.",
+            variant: "destructive"
+          });
+        } else if (error.message.includes('402') || error.message.includes('Payment required')) {
+          toast({
+            title: "Credits Required",
+            description: "Please add credits to your workspace to continue using AI features.",
+            variant: "destructive"
+          });
+        } else {
+          toast({
+            title: "Analysis Failed",
+            description: errorMessage,
+            variant: "destructive"
+          });
+        }
+      } else {
+        toast({
+          title: "Analysis Failed",
+          description: "Failed to analyze video. Please try again.",
+          variant: "destructive"
+        });
+      }
       
       if (import.meta.env.DEV) {
         console.error('Error analyzing video:', error);

@@ -111,7 +111,13 @@ const AnalysisResults = () => {
                     <CardTitle>Detailed Feedback</CardTitle>
                   </CardHeader>
                   <CardContent className="space-y-6">
-                    {analysis.feedback.map((item: FeedbackItem, index: number) => (
+                    {analysis.feedback ? (
+                      <p className="text-sm text-muted-foreground">{analysis.feedback}</p>
+                    ) : analysis.analysis_results && typeof analysis.analysis_results === 'object' && 'feedback' in analysis.analysis_results ? (
+                      (Array.isArray((analysis.analysis_results as any).feedback) 
+                        ? (analysis.analysis_results as any).feedback 
+                        : [(analysis.analysis_results as any).feedback]
+                      ).map((item: any, index: number) => (
                       <div key={index} className="space-y-2">
                         <div className="flex items-center justify-between">
                           <div className="flex items-center gap-2">
@@ -123,9 +129,12 @@ const AnalysisResults = () => {
                           <span className="text-2xl font-bold">{item.score}</span>
                         </div>
                         <Progress value={item.score} className="h-2" />
-                        <p className="text-sm text-muted-foreground">{item.comments}</p>
+                        <p className="text-sm text-muted-foreground">{item.comments || item}</p>
                       </div>
-                    ))}
+                      ))
+                    ) : (
+                      <p className="text-sm text-muted-foreground">No detailed feedback available yet.</p>
+                    )}
                   </CardContent>
                 </Card>
               </div>

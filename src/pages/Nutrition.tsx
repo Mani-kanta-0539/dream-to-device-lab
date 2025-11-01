@@ -16,6 +16,11 @@ interface Meal {
   items: string[];
   calories: number;
   protein: number;
+  description?: string;
+  carbs?: number;
+  fat?: number;
+  ingredients?: string[];
+  instructions?: string;
 }
 
 const Nutrition = () => {
@@ -30,7 +35,6 @@ const Nutrition = () => {
     water: { current: 0, target: 8 },
   });
   const [meals, setMeals] = useState<Meal[]>([]);
-  const [meals, setMeals] = useState([]);
 
   const { data: mealPlanData, isLoading: isLoadingMealPlan } = useQuery({
     queryKey: ["mealPlan", user?.id],
@@ -163,11 +167,35 @@ const Nutrition = () => {
       }
     } catch (error: unknown) {
       const errorMessage = error instanceof Error ? error.message : "Failed to generate meal plan. Please try again.";
-      toast({
-        title: "Generation Failed",
-        description: errorMessage,
-        variant: "destructive"
-      });
+      
+      // Handle specific error codes
+      if (error instanceof Error) {
+        if (error.message.includes('429')) {
+          toast({
+            title: "Rate Limit Exceeded",
+            description: "Too many requests. Please wait a moment and try again.",
+            variant: "destructive"
+          });
+        } else if (error.message.includes('402')) {
+          toast({
+            title: "Credits Required",
+            description: "Please add credits to your workspace to continue using AI features.",
+            variant: "destructive"
+          });
+        } else {
+          toast({
+            title: "Generation Failed",
+            description: errorMessage,
+            variant: "destructive"
+          });
+        }
+      } else {
+        toast({
+          title: "Generation Failed",
+          description: "Failed to generate meal plan. Please try again.",
+          variant: "destructive"
+        });
+      }
       
       if (import.meta.env.DEV) {
         console.error('Error generating meal plan:', error);

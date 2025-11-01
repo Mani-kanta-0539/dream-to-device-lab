@@ -57,11 +57,35 @@ const Workouts = () => {
       }
     } catch (error: unknown) {
       const errorMessage = error instanceof Error ? error.message : "Failed to generate workout. Please try again.";
-      toast({
-        title: "Generation Failed",
-        description: errorMessage,
-        variant: "destructive"
-      });
+      
+      // Handle specific error codes
+      if (error instanceof Error) {
+        if (error.message.includes('429')) {
+          toast({
+            title: "Rate Limit Exceeded",
+            description: "Too many requests. Please wait a moment and try again.",
+            variant: "destructive"
+          });
+        } else if (error.message.includes('402')) {
+          toast({
+            title: "Credits Required",
+            description: "Please add credits to your workspace to continue using AI features.",
+            variant: "destructive"
+          });
+        } else {
+          toast({
+            title: "Generation Failed",
+            description: errorMessage,
+            variant: "destructive"
+          });
+        }
+      } else {
+        toast({
+          title: "Generation Failed",
+          description: "Failed to generate workout. Please try again.",
+          variant: "destructive"
+        });
+      }
       
       if (import.meta.env.DEV) {
         console.error('Error generating workout:', error);

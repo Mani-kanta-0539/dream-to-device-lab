@@ -19,7 +19,7 @@ export const handleApiError = (error: unknown): AppError => {
       };
     }
     
-    if (error.message.includes('row-level security')) {
+    if (error instanceof Error && error.message.includes('row-level security')) {
       return {
         code: 'PERMISSION_ERROR',
         message: 'You do not have permission to perform this action.',
@@ -27,7 +27,7 @@ export const handleApiError = (error: unknown): AppError => {
       };
     }
     
-    if (error.message.includes('Rate limit')) {
+    if (error instanceof Error && error.message.includes('Rate limit')) {
       return {
         code: 'RATE_LIMIT',
         message: 'Too many requests. Please try again later.',
@@ -35,7 +35,7 @@ export const handleApiError = (error: unknown): AppError => {
       };
     }
 
-    if (error.message.includes('Payment required')) {
+    if (error instanceof Error && error.message.includes('Payment required')) {
       return {
         code: 'PAYMENT_REQUIRED',
         message: 'Service quota exceeded. Please add credits to continue.',
