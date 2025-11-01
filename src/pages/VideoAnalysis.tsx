@@ -49,20 +49,17 @@ const VideoAnalysis = () => {
 
       if (uploadError) throw uploadError;
 
-      // Create a signed URL (valid for 1 hour) since bucket is not public
-      const { data: signedUrlData, error: signedUrlError } = await supabase.storage
+      // Get public URL since bucket is now public
+      const { data: { publicUrl } } = supabase.storage
         .from('analysis-videos')
-        .createSignedUrl(filePath, 3600);
-
-      if (signedUrlError) throw signedUrlError;
-      const videoUrl = signedUrlData.signedUrl;
+        .getPublicUrl(filePath);
 
       // Create video analysis record
       const { data: analysisRecord, error: recordError } = await supabase
         .from('video_analyses')
         .insert({
           user_id: user.id,
-          video_url: videoUrl,
+          video_url: publicUrl,
           analysis_status: 'processing'
         })
         .select()
@@ -70,10 +67,10 @@ const VideoAnalysis = () => {
 
       if (recordError) throw recordError;
 
-      // Call AI analysis function with signed URL
+      // Call AI analysis function with public URL
       const { data: analysisData, error: analysisError } = await supabase.functions.invoke('analyze-video', {
         body: { 
-          videoUrl: videoUrl,
+          videoUrl: publicUrl,
           exerciseType: 'general' 
         }
       });
