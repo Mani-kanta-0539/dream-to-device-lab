@@ -29,35 +29,7 @@ serve(async (req) => {
 
     console.log('Analyzing video from URL:', videoUrl, 'Exercise type:', exerciseType);
 
-    // Upload video URL to Gemini File API (Gemini will download it)
-    console.log('Uploading video URL to Gemini File API...');
-    
-    const uploadResponse = await fetch(`https://generativelanguage.googleapis.com/upload/v1beta/files`, {
-      method: 'POST',
-      headers: {
-        'X-Goog-Upload-Protocol': 'resumable',
-        'X-Goog-Upload-Command': 'start',
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        file: {
-          display_name: 'workout_video.mp4'
-        }
-      })
-    });
-
-    if (!uploadResponse.ok) {
-      const errorText = await uploadResponse.text();
-      console.error('Upload initiation error:', errorText);
-      throw new Error('Failed to initiate upload to Gemini');
-    }
-
-    const uploadUrl = uploadResponse.headers.get('X-Goog-Upload-URL');
-    if (!uploadUrl) {
-      throw new Error('No upload URL returned from Gemini');
-    }
-
-    // Download video and upload to Gemini in chunks
+    // Download video from signed URL
     console.log('Fetching video from signed URL...');
     const videoResponse = await fetch(videoUrl);
     if (!videoResponse.ok) {
@@ -66,24 +38,27 @@ serve(async (req) => {
 
     const videoBlob = await videoResponse.arrayBuffer();
     
-    // Upload the video data
-    const finalUploadResponse = await fetch(uploadUrl, {
+    // Upload to Gemini File API with direct method
+    console.log('Uploading video to Gemini File API...');
+    const uploadResponse = await fetch(`https://generativelanguage.googleapis.com/upload/v1beta/files?key=${GEMINI_API_KEY}`, {
       method: 'POST',
       headers: {
-        'Content-Length': videoBlob.byteLength.toString(),
-        'X-Goog-Upload-Offset': '0',
+        'X-Goog-Upload-Protocol': 'resumable',
         'X-Goog-Upload-Command': 'upload, finalize',
+        'X-Goog-Upload-Header-Content-Length': videoBlob.byteLength.toString(),
+        'X-Goog-Upload-Header-Content-Type': 'video/mp4',
+        'Content-Type': 'video/mp4',
       },
       body: videoBlob,
     });
 
-    if (!finalUploadResponse.ok) {
-      const errorText = await finalUploadResponse.text();
+    if (!uploadResponse.ok) {
+      const errorText = await uploadResponse.text();
       console.error('File upload error:', errorText);
       throw new Error('Failed to upload video to Gemini');
     }
 
-    const fileData = await finalUploadResponse.json();
+    const fileData = await uploadResponse.json();
     console.log('File uploaded:', fileData);
 
     const prompt = exerciseType 
