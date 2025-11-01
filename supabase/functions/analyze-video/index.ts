@@ -29,37 +29,9 @@ serve(async (req) => {
 
     console.log('Analyzing video from URL:', videoUrl, 'Exercise type:', exerciseType);
 
-    // Download video from signed URL
-    console.log('Fetching video from signed URL...');
-    const videoResponse = await fetch(videoUrl);
-    if (!videoResponse.ok) {
-      throw new Error(`Failed to fetch video: ${videoResponse.statusText}`);
-    }
-
-    const videoBlob = await videoResponse.arrayBuffer();
-    
-    // Upload to Gemini File API with direct method
-    console.log('Uploading video to Gemini File API...');
-    const uploadResponse = await fetch(`https://generativelanguage.googleapis.com/upload/v1beta/files?key=${GEMINI_API_KEY}`, {
-      method: 'POST',
-      headers: {
-        'X-Goog-Upload-Protocol': 'resumable',
-        'X-Goog-Upload-Command': 'upload, finalize',
-        'X-Goog-Upload-Header-Content-Length': videoBlob.byteLength.toString(),
-        'X-Goog-Upload-Header-Content-Type': 'video/mp4',
-        'Content-Type': 'video/mp4',
-      },
-      body: videoBlob,
-    });
-
-    if (!uploadResponse.ok) {
-      const errorText = await uploadResponse.text();
-      console.error('File upload error:', errorText);
-      throw new Error('Failed to upload video to Gemini');
-    }
-
-    const fileData = await uploadResponse.json();
-    console.log('File uploaded:', fileData);
+    // Let Gemini analyze the video directly from URL
+    // Wait a bit to ensure video is accessible
+    await new Promise(resolve => setTimeout(resolve, 2000));
 
     const prompt = exerciseType 
       ? `Analyze this ${exerciseType} workout video for proper form and technique. Provide:
@@ -70,9 +42,6 @@ serve(async (req) => {
 Return ONLY valid JSON with this structure:
 {"formScore": 85, "feedback": "detailed feedback here", "improvementSuggestions": ["tip 1", "tip 2", "tip 3"]}`
       : `Analyze this workout video for proper form. Return JSON with formScore, feedback, and improvementSuggestions.`;
-
-    // Wait a bit for file processing
-    await new Promise(resolve => setTimeout(resolve, 3000));
 
     const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash-exp:generateContent?key=${GEMINI_API_KEY}`, {
       method: 'POST',
@@ -85,8 +54,8 @@ Return ONLY valid JSON with this structure:
             { text: prompt },
             { 
               fileData: {
-                mimeType: fileData.file.mimeType,
-                fileUri: fileData.file.uri
+                mimeType: 'video/mp4',
+                fileUri: videoUrl
               }
             }
           ]
