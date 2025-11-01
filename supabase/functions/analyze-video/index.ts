@@ -12,33 +12,46 @@ serve(async (req) => {
   }
 
   try {
-    const { videoUrl, exerciseType } = await req.json();
+    const { videoPath, exerciseType } = await req.json();
     
-    if (!videoUrl) {
+    if (!videoPath) {
       return new Response(
-        JSON.stringify({ error: 'videoUrl is required' }), 
+        JSON.stringify({ error: 'videoPath is required' }), 
         { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
 
     const GEMINI_API_KEY = Deno.env.get('GEMINI_API_KEY');
+    const SUPABASE_URL = Deno.env.get('SUPABASE_URL');
+    const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
+    
     if (!GEMINI_API_KEY) {
       throw new Error('GEMINI_API_KEY is not configured');
     }
 
-    console.log('Analyzing video:', videoUrl, 'Exercise type:', exerciseType);
+    console.log('Analyzing video:', videoPath, 'Exercise type:', exerciseType);
 
-    // First, upload the video to Gemini File API
-    console.log('Uploading video to Gemini File API...');
-    
-    // Fetch the video from the URL
-    const videoResponse = await fetch(videoUrl);
-    if (!videoResponse.ok) {
-      throw new Error('Failed to fetch video from URL');
+    // Download video from Supabase storage using service role
+    console.log('Downloading video from Supabase storage...');
+    const { data: videoData, error: downloadError } = await fetch(
+      `${SUPABASE_URL}/storage/v1/object/analysis-videos/${videoPath}`,
+      {
+        headers: {
+          'Authorization': `Bearer ${SUPABASE_SERVICE_ROLE_KEY}`
+        }
+      }
+    ).then(async (res) => {
+      if (!res.ok) {
+        return { data: null, error: new Error(`Failed to download video: ${res.statusText}`) };
+      }
+      return { data: await res.arrayBuffer(), error: null };
+    });
+
+    if (downloadError || !videoData) {
+      throw downloadError || new Error('Failed to download video');
     }
-    
-    const videoBlob = await videoResponse.blob();
-    const videoBytes = await videoBlob.arrayBuffer();
+
+    const videoBytes = videoData;
     
     // Upload to Gemini File API
     const uploadResponse = await fetch(`https://generativelanguage.googleapis.com/upload/v1beta/files?key=${GEMINI_API_KEY}`, {

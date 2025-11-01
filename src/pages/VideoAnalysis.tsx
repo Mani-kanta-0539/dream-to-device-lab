@@ -70,10 +70,10 @@ const VideoAnalysis = () => {
 
       if (recordError) throw recordError;
 
-      // Call AI analysis function
+      // Call AI analysis function with file path instead of URL
       const { data: analysisData, error: analysisError } = await supabase.functions.invoke('analyze-video', {
         body: { 
-          videoUrl: videoUrl,
+          videoPath: filePath,
           exerciseType: 'general' 
         }
       });
