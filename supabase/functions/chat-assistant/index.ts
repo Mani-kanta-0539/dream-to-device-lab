@@ -77,6 +77,7 @@ Be encouraging, clear, and practical in your responses. Keep answers concise unl
 
     const stream = new ReadableStream({
       async start(controller) {
+        let buffer = '';
         try {
           while (true) {
             const { done, value } = await reader!.read();
@@ -86,12 +87,19 @@ Be encouraging, clear, and practical in your responses. Keep answers concise unl
               break;
             }
 
-            const chunk = decoder.decode(value);
-            const lines = chunk.split('\n').filter(line => line.trim());
+            buffer += decoder.decode(value, { stream: true });
+            const lines = buffer.split('\n');
+            
+            // Keep the last partial line in the buffer
+            buffer = lines.pop() || '';
             
             for (const line of lines) {
+              if (!line.trim() || line.startsWith('[')) continue;
+              
               try {
-                const data = JSON.parse(line);
+                // Remove trailing comma if present
+                const cleanLine = line.trim().replace(/,$/, '');
+                const data = JSON.parse(cleanLine);
                 const text = data.candidates?.[0]?.content?.parts?.[0]?.text;
                 
                 if (text) {
@@ -104,7 +112,8 @@ Be encouraging, clear, and practical in your responses. Keep answers concise unl
                   controller.enqueue(encoder.encode(`data: ${JSON.stringify(sseData)}\n\n`));
                 }
               } catch (e) {
-                console.error('Error parsing chunk:', e);
+                // Skip parsing errors for malformed chunks
+                continue;
               }
             }
           }

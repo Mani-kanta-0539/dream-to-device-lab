@@ -28,25 +28,52 @@ serve(async (req) => {
 
     console.log('Analyzing video:', videoUrl, 'Exercise type:', exerciseType);
 
-    const prompt = exerciseType 
-      ? `Analyze this ${exerciseType} video for proper form and technique. Provide a detailed analysis including:
-1. Overall form score (0-100)
-2. Detailed feedback on the technique
-3. Specific improvement suggestions
-4. Key points about what's done well
-5. Areas that need improvement
+    // First, upload the video to Gemini File API
+    console.log('Uploading video to Gemini File API...');
+    
+    // Fetch the video from the URL
+    const videoResponse = await fetch(videoUrl);
+    if (!videoResponse.ok) {
+      throw new Error('Failed to fetch video from URL');
+    }
+    
+    const videoBlob = await videoResponse.blob();
+    const videoBytes = await videoBlob.arrayBuffer();
+    
+    // Upload to Gemini File API
+    const uploadResponse = await fetch(`https://generativelanguage.googleapis.com/upload/v1beta/files?key=${GEMINI_API_KEY}`, {
+      method: 'POST',
+      headers: {
+        'X-Goog-Upload-Protocol': 'resumable',
+        'X-Goog-Upload-Command': 'upload, finalize',
+        'X-Goog-Upload-Header-Content-Length': videoBytes.byteLength.toString(),
+        'X-Goog-Upload-Header-Content-Type': 'video/mp4',
+        'Content-Type': 'video/mp4',
+      },
+      body: videoBytes,
+    });
 
-Format your response as JSON with the following structure:
-{
-  "formScore": <number>,
-  "feedback": "<detailed feedback>",
-  "improvementSuggestions": ["<suggestion 1>", "<suggestion 2>"],
-  "keyPoints": {
-    "goodForm": ["<point 1>", "<point 2>"],
-    "needsImprovement": ["<point 1>", "<point 2>"]
-  }
-}`
-      : `Analyze this workout video for proper form and technique. Provide a detailed analysis.`;
+    if (!uploadResponse.ok) {
+      const errorText = await uploadResponse.text();
+      console.error('File upload error:', errorText);
+      throw new Error('Failed to upload video to Gemini');
+    }
+
+    const fileData = await uploadResponse.json();
+    console.log('File uploaded:', fileData);
+
+    const prompt = exerciseType 
+      ? `Analyze this ${exerciseType} workout video for proper form and technique. Provide:
+1. Overall form score (0-100)
+2. Detailed feedback on technique
+3. Specific improvement suggestions
+
+Return ONLY valid JSON with this structure:
+{"formScore": 85, "feedback": "detailed feedback here", "improvementSuggestions": ["tip 1", "tip 2", "tip 3"]}`
+      : `Analyze this workout video for proper form. Return JSON with formScore, feedback, and improvementSuggestions.`;
+
+    // Wait a bit for file processing
+    await new Promise(resolve => setTimeout(resolve, 3000));
 
     const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash-exp:generateContent?key=${GEMINI_API_KEY}`, {
       method: 'POST',
@@ -59,8 +86,8 @@ Format your response as JSON with the following structure:
             { text: prompt },
             { 
               fileData: {
-                mimeType: "video/mp4",
-                fileUri: videoUrl
+                mimeType: fileData.file.mimeType,
+                fileUri: fileData.file.uri
               }
             }
           ]
