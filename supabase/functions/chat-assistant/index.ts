@@ -47,7 +47,7 @@ serve(async (req) => {
 Be encouraging, clear, and practical in your responses. Keep answers concise unless detailed explanations are requested.` }]
     });
 
-    const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash-exp:streamGenerateContent?key=${GEMINI_API_KEY}`, {
+    const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash-exp:generateContent?key=${GEMINI_API_KEY}`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -70,57 +70,33 @@ Be encouraging, clear, and practical in your responses. Keep answers concise unl
       );
     }
 
-    // Transform Gemini streaming response to SSE format
-    const reader = response.body?.getReader();
+    const data = await response.json();
+    console.log('Gemini response:', JSON.stringify(data));
+
+    const text = data.candidates?.[0]?.content?.parts?.[0]?.text;
+    
+    if (!text) {
+      console.error('No text in response:', data);
+      return new Response(
+        JSON.stringify({ error: 'No response from AI' }), 
+        { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
+    // Return as streaming response for compatibility with frontend
     const encoder = new TextEncoder();
-    const decoder = new TextDecoder();
-
     const stream = new ReadableStream({
-      async start(controller) {
-        let buffer = '';
-        try {
-          while (true) {
-            const { done, value } = await reader!.read();
-            if (done) {
-              controller.enqueue(encoder.encode('data: [DONE]\n\n'));
-              controller.close();
-              break;
-            }
-
-            buffer += decoder.decode(value, { stream: true });
-            const lines = buffer.split('\n');
-            
-            // Keep the last partial line in the buffer
-            buffer = lines.pop() || '';
-            
-            for (const line of lines) {
-              if (!line.trim() || line.startsWith('[')) continue;
-              
-              try {
-                // Remove trailing comma if present
-                const cleanLine = line.trim().replace(/,$/, '');
-                const data = JSON.parse(cleanLine);
-                const text = data.candidates?.[0]?.content?.parts?.[0]?.text;
-                
-                if (text) {
-                  const sseData = {
-                    choices: [{
-                      delta: { content: text },
-                      index: 0
-                    }]
-                  };
-                  controller.enqueue(encoder.encode(`data: ${JSON.stringify(sseData)}\n\n`));
-                }
-              } catch (e) {
-                // Skip parsing errors for malformed chunks
-                continue;
-              }
-            }
-          }
-        } catch (error) {
-          console.error('Stream error:', error);
-          controller.error(error);
-        }
+      start(controller) {
+        // Send the complete text as a single chunk
+        const sseData = {
+          choices: [{
+            delta: { content: text },
+            index: 0
+          }]
+        };
+        controller.enqueue(encoder.encode(`data: ${JSON.stringify(sseData)}\n\n`));
+        controller.enqueue(encoder.encode('data: [DONE]\n\n'));
+        controller.close();
       }
     });
 

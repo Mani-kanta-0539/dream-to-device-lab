@@ -24,6 +24,17 @@ const VideoAnalysis = () => {
       return;
     }
 
+    // Check file size (limit to 50MB)
+    const maxSize = 50 * 1024 * 1024; // 50MB in bytes
+    if (file.size > maxSize) {
+      toast({
+        title: "File Too Large",
+        description: "Please upload a video smaller than 50MB. Try compressing your video or recording a shorter clip.",
+        variant: "destructive"
+      });
+      return;
+    }
+
     setIsAnalyzing(true);
     
     try {
