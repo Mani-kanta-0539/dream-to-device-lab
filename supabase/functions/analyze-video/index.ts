@@ -12,67 +12,78 @@ serve(async (req) => {
   }
 
   try {
-    const { videoPath, exerciseType } = await req.json();
+    const { videoUrl, exerciseType } = await req.json();
     
-    if (!videoPath) {
+    if (!videoUrl) {
       return new Response(
-        JSON.stringify({ error: 'videoPath is required' }), 
+        JSON.stringify({ error: 'videoUrl is required' }), 
         { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
 
     const GEMINI_API_KEY = Deno.env.get('GEMINI_API_KEY');
-    const SUPABASE_URL = Deno.env.get('SUPABASE_URL');
-    const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
     
     if (!GEMINI_API_KEY) {
       throw new Error('GEMINI_API_KEY is not configured');
     }
 
-    console.log('Analyzing video:', videoPath, 'Exercise type:', exerciseType);
+    console.log('Analyzing video from URL:', videoUrl, 'Exercise type:', exerciseType);
 
-    // Download video from Supabase storage using service role
-    console.log('Downloading video from Supabase storage...');
-    const { data: videoData, error: downloadError } = await fetch(
-      `${SUPABASE_URL}/storage/v1/object/analysis-videos/${videoPath}`,
-      {
-        headers: {
-          'Authorization': `Bearer ${SUPABASE_SERVICE_ROLE_KEY}`
-        }
-      }
-    ).then(async (res) => {
-      if (!res.ok) {
-        return { data: null, error: new Error(`Failed to download video: ${res.statusText}`) };
-      }
-      return { data: await res.arrayBuffer(), error: null };
-    });
-
-    if (downloadError || !videoData) {
-      throw downloadError || new Error('Failed to download video');
-    }
-
-    const videoBytes = videoData;
+    // Upload video URL to Gemini File API (Gemini will download it)
+    console.log('Uploading video URL to Gemini File API...');
     
-    // Upload to Gemini File API
-    const uploadResponse = await fetch(`https://generativelanguage.googleapis.com/upload/v1beta/files?key=${GEMINI_API_KEY}`, {
+    const uploadResponse = await fetch(`https://generativelanguage.googleapis.com/upload/v1beta/files`, {
       method: 'POST',
       headers: {
         'X-Goog-Upload-Protocol': 'resumable',
-        'X-Goog-Upload-Command': 'upload, finalize',
-        'X-Goog-Upload-Header-Content-Length': videoBytes.byteLength.toString(),
-        'X-Goog-Upload-Header-Content-Type': 'video/mp4',
-        'Content-Type': 'video/mp4',
+        'X-Goog-Upload-Command': 'start',
+        'Content-Type': 'application/json',
       },
-      body: videoBytes,
+      body: JSON.stringify({
+        file: {
+          display_name: 'workout_video.mp4'
+        }
+      })
     });
 
     if (!uploadResponse.ok) {
       const errorText = await uploadResponse.text();
+      console.error('Upload initiation error:', errorText);
+      throw new Error('Failed to initiate upload to Gemini');
+    }
+
+    const uploadUrl = uploadResponse.headers.get('X-Goog-Upload-URL');
+    if (!uploadUrl) {
+      throw new Error('No upload URL returned from Gemini');
+    }
+
+    // Download video and upload to Gemini in chunks
+    console.log('Fetching video from signed URL...');
+    const videoResponse = await fetch(videoUrl);
+    if (!videoResponse.ok) {
+      throw new Error(`Failed to fetch video: ${videoResponse.statusText}`);
+    }
+
+    const videoBlob = await videoResponse.arrayBuffer();
+    
+    // Upload the video data
+    const finalUploadResponse = await fetch(uploadUrl, {
+      method: 'POST',
+      headers: {
+        'Content-Length': videoBlob.byteLength.toString(),
+        'X-Goog-Upload-Offset': '0',
+        'X-Goog-Upload-Command': 'upload, finalize',
+      },
+      body: videoBlob,
+    });
+
+    if (!finalUploadResponse.ok) {
+      const errorText = await finalUploadResponse.text();
       console.error('File upload error:', errorText);
       throw new Error('Failed to upload video to Gemini');
     }
 
-    const fileData = await uploadResponse.json();
+    const fileData = await finalUploadResponse.json();
     console.log('File uploaded:', fileData);
 
     const prompt = exerciseType 
