@@ -2,7 +2,6 @@ import { useState } from "react";
 import { Link } from "react-router-dom";
 import { Menu, X, Dumbbell, User, LogOut } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { SidebarTrigger } from "@/components/ui/sidebar";
 import { useAuth } from "@/contexts/AuthContext";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { ThemeToggle } from "./ThemeToggle";
@@ -36,14 +35,6 @@ export const Header = () => {
     <header className="sticky top-0 z-50 w-full border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
       <nav className="container mx-auto flex h-16 items-center justify-between px-4">
         <div className="flex items-center gap-4">
-          {user && (
-            <SidebarTrigger className="hover:bg-accent">
-              <Menu className="h-5 w-5" />
-            </SidebarTrigger>
-          )}
-          <SidebarTrigger className="hover:bg-accent">
-            <Menu className="h-5 w-5" />
-          </SidebarTrigger>
           <Link to="/" className="flex items-center gap-2">
             <Dumbbell className="h-8 w-8 text-primary" />
             <span className="text-2xl font-bold text-primary">AscendFit</span>
