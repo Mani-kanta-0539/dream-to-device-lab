@@ -36,19 +36,47 @@ serve(async (req) => {
       throw new Error(`Failed to fetch video: ${videoResponse.statusText}`);
     }
 
-    const videoBlob = await videoResponse.arrayBuffer();
-    console.log('Video downloaded, size:', videoBlob.byteLength, 'bytes');
+    const videoBlob = await videoResponse.blob();
+    console.log('Video downloaded, size:', videoBlob.size, 'bytes');
     
-    // Step 2: Upload to Gemini File API
-    console.log('Uploading video to Gemini File API...');
-    const uploadResponse = await fetch(`https://generativelanguage.googleapis.com/upload/v1beta/files?key=${GEMINI_API_KEY}`, {
+    // Step 2: Start resumable upload session
+    console.log('Starting Gemini File API upload session...');
+    const startResponse = await fetch(`https://generativelanguage.googleapis.com/upload/v1beta/files?key=${GEMINI_API_KEY}`, {
       method: 'POST',
       headers: {
         'X-Goog-Upload-Protocol': 'resumable',
-        'X-Goog-Upload-Command': 'upload, finalize',
-        'X-Goog-Upload-Header-Content-Length': videoBlob.byteLength.toString(),
+        'X-Goog-Upload-Command': 'start',
+        'X-Goog-Upload-Header-Content-Length': videoBlob.size.toString(),
         'X-Goog-Upload-Header-Content-Type': 'video/mp4',
-        'Content-Type': 'video/mp4',
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        file: {
+          display_name: 'workout_video.mp4'
+        }
+      })
+    });
+
+    if (!startResponse.ok) {
+      const errorText = await startResponse.text();
+      console.error('Upload session start error:', startResponse.status, errorText);
+      throw new Error(`Failed to start upload session: ${errorText}`);
+    }
+
+    const uploadUrl = startResponse.headers.get('X-Goog-Upload-URL');
+    if (!uploadUrl) {
+      throw new Error('No upload URL received from Gemini');
+    }
+
+    console.log('Upload session started, uploading video...');
+    
+    // Step 3: Upload the actual video data
+    const uploadResponse = await fetch(uploadUrl, {
+      method: 'POST',
+      headers: {
+        'Content-Length': videoBlob.size.toString(),
+        'X-Goog-Upload-Offset': '0',
+        'X-Goog-Upload-Command': 'upload, finalize',
       },
       body: videoBlob,
     });
@@ -56,15 +84,15 @@ serve(async (req) => {
     if (!uploadResponse.ok) {
       const errorText = await uploadResponse.text();
       console.error('File upload error:', uploadResponse.status, errorText);
-      throw new Error(`Failed to upload video to Gemini: ${errorText}`);
+      throw new Error(`Failed to upload video: ${errorText}`);
     }
 
     const fileData = await uploadResponse.json();
     console.log('File uploaded to Gemini:', fileData);
 
-    // Step 3: Wait for file processing
+    // Step 4: Wait for file processing
     console.log('Waiting for file processing...');
-    await new Promise(resolve => setTimeout(resolve, 3000));
+    await new Promise(resolve => setTimeout(resolve, 5000));
 
     const prompt = exerciseType 
       ? `Analyze this ${exerciseType} workout video for proper form and technique. Provide:
