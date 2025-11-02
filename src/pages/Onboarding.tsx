@@ -20,9 +20,13 @@ interface OnboardingData {
   goals?: string[];
   weight?: number;
   height?: number;
+  age?: number;
+  gender?: 'male' | 'female' | 'other';
   workoutTypes?: string[];
   workoutDuration?: number;
-  dietaryRestrictions?: string[];
+  dietType?: string;
+  allergies?: string[];
+  restrictions?: string;
   equipment?: string[];
 }
 
@@ -73,6 +77,18 @@ const Onboarding = () => {
     setIsLoading(true);
 
     try {
+      // Prepare dietary restrictions array
+      const dietaryRestrictions = [];
+      if (onboardingData.dietType && onboardingData.dietType !== 'none') {
+        dietaryRestrictions.push(onboardingData.dietType);
+      }
+      if (onboardingData.allergies && onboardingData.allergies.length > 0) {
+        dietaryRestrictions.push(...onboardingData.allergies);
+      }
+      if (onboardingData.restrictions) {
+        dietaryRestrictions.push(onboardingData.restrictions);
+      }
+
       // Update user preferences
       const { error: preferencesError } = await supabase
         .from('user_preferences')
@@ -81,20 +97,21 @@ const Onboarding = () => {
           goals: onboardingData.goals || [],
           preferred_workout_types: onboardingData.workoutTypes || [],
           preferred_workout_duration: onboardingData.workoutDuration,
-          dietary_restrictions: onboardingData.dietaryRestrictions || []
+          dietary_restrictions: dietaryRestrictions
         })
         .eq('user_id', user.id);
 
       if (preferencesError) throw preferencesError;
 
       // Insert initial stats if provided
-      if (onboardingData.weight || onboardingData.height) {
+      if (onboardingData.weight || onboardingData.height || onboardingData.age) {
         const { error: statsError } = await supabase
           .from('user_stats')
           .insert({
             user_id: user.id,
             weight: onboardingData.weight,
-            height: onboardingData.height
+            height: onboardingData.height,
+            age: onboardingData.age
           });
 
         if (statsError) throw statsError;

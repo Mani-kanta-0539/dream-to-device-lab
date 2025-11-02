@@ -12,14 +12,13 @@ import { useQuery } from "@tanstack/react-query";
 
 interface Meal {
   name: string;
-  time: string;
-  items: string[];
+  mealType: string;
+  description?: string;
   calories: number;
   protein: number;
-  description?: string;
-  carbs?: number;
-  fat?: number;
-  ingredients?: string[];
+  carbs: number;
+  fat: number;
+  ingredients: string[];
   instructions?: string;
 }
 
@@ -55,22 +54,26 @@ const Nutrition = () => {
   });
 
   useEffect(() => {
-    if (mealPlanData) {
+    if (mealPlanData?.meals) {
       const { meals: mealItems, daily_calorie_target, daily_protein_target, daily_carbs_target, daily_fat_target } = mealPlanData;
 
-      const formattedMeals = mealItems.map((meal) => ({
+      const formattedMeals = mealItems.map((meal: any) => ({
         name: meal.name,
-        time: meal.meal_type === 'breakfast' ? '8:00 AM' : meal.meal_type === 'lunch' ? '1:00 PM' : meal.meal_type === 'dinner' ? '7:00 PM' : 'Throughout day',
-        items: meal.ingredients.slice(0, 3),
-        calories: meal.calories,
-        protein: meal.protein
+        mealType: meal.meal_type,
+        description: meal.description,
+        calories: meal.calories || 0,
+        protein: meal.protein || 0,
+        carbs: meal.carbs || 0,
+        fat: meal.fat || 0,
+        ingredients: meal.ingredients || [],
+        instructions: meal.instructions
       }));
       setMeals(formattedMeals);
 
-      const totalCalories = mealItems.reduce((acc, meal) => acc + meal.calories, 0);
-      const totalProtein = mealItems.reduce((acc, meal) => acc + meal.protein, 0);
-      const totalCarbs = mealItems.reduce((acc, meal) => acc + meal.carbs, 0);
-      const totalFats = mealItems.reduce((acc, meal) => acc + meal.fat, 0);
+      const totalCalories = mealItems.reduce((acc: number, meal: any) => acc + (meal.calories || 0), 0);
+      const totalProtein = mealItems.reduce((acc: number, meal: any) => acc + (meal.protein || 0), 0);
+      const totalCarbs = mealItems.reduce((acc: number, meal: any) => acc + (meal.carbs || 0), 0);
+      const totalFats = mealItems.reduce((acc: number, meal: any) => acc + (meal.fat || 0), 0);
 
       setDailyGoals(prev => ({
         ...prev,
@@ -132,9 +135,9 @@ const Nutrition = () => {
 
         if (planData) {
           // Save meals
-          const mealsToInsert = data.mealPlan.meals.map((meal: Meal, index: number) => ({
+          const mealsToInsert = data.mealPlan.meals.map((meal: any) => ({
             meal_plan_id: planData.id,
-            meal_type: meal.time,
+            meal_type: meal.mealType,
             day_of_week: new Date().getDay(),
             name: meal.name,
             description: meal.description,
@@ -150,15 +153,7 @@ const Nutrition = () => {
         }
 
         // Update UI with new meals
-        const formattedMeals: Meal[] = data.mealPlan.meals.map((meal: Meal) => ({
-          name: meal.name,
-          time: meal.time,
-          items: meal.items.slice(0, 3),
-          calories: meal.calories,
-          protein: meal.protein
-        }));
-
-        setMeals(formattedMeals);
+        setMeals(data.mealPlan.meals);
 
         toast({
           title: "Meal Plan Generated!",
@@ -305,35 +300,60 @@ const Nutrition = () => {
                   {isLoadingMealPlan ? (
                     <p>Loading meal plan...</p>
                   ) : meals.length > 0 ? (
-                    meals.map((meal) => (
+                    meals.map((meal, idx) => (
                       <div
-                        key={meal.name}
-                        className="p-4 rounded-lg border hover:bg-muted/50 transition-colors"
+                        key={`${meal.name}-${idx}`}
+                        className="p-4 rounded-lg border hover:bg-muted/50 transition-colors space-y-3"
                       >
-                        <div className="flex items-start justify-between mb-2">
-                          <div>
-                            <h3 className="font-semibold">{meal.name}</h3>
-                            <p className="text-sm text-muted-foreground">{meal.time}</p>
+                        <div className="flex items-start justify-between">
+                          <div className="flex-1">
+                            <div className="flex items-center gap-2 mb-1">
+                              <Badge variant="outline" className="text-xs">
+                                {meal.mealType}
+                              </Badge>
+                            </div>
+                            <h3 className="font-semibold text-lg">{meal.name}</h3>
+                            {meal.description && (
+                              <p className="text-sm text-muted-foreground mt-1">{meal.description}</p>
+                            )}
                           </div>
-                          <div className="text-right">
+                          <div className="text-right ml-4">
                             <div className="text-lg font-bold">{meal.calories} cal</div>
-                            <div className="text-sm text-muted-foreground">
-                              {meal.protein}g protein
+                            <div className="text-xs text-muted-foreground space-y-0.5">
+                              <div>{meal.protein}g protein</div>
+                              <div>{meal.carbs}g carbs</div>
+                              <div>{meal.fat}g fat</div>
                             </div>
                           </div>
                         </div>
-                        <ul className="space-y-1">
-                          {meal.items.map((item, index) => (
-                            <li key={index} className="text-sm flex items-center gap-2">
-                              <Apple className="h-3 w-3 text-primary" />
-                              {item}
-                            </li>
-                          ))}
-                        </ul>
+                        
+                        {meal.ingredients && meal.ingredients.length > 0 && (
+                          <div className="space-y-1">
+                            <h4 className="text-sm font-medium">Ingredients:</h4>
+                            <ul className="space-y-1">
+                              {meal.ingredients.map((item, index) => (
+                                <li key={index} className="text-sm flex items-center gap-2">
+                                  <Apple className="h-3 w-3 text-primary flex-shrink-0" />
+                                  <span>{item}</span>
+                                </li>
+                              ))}
+                            </ul>
+                          </div>
+                        )}
+                        
+                        {meal.instructions && (
+                          <div className="space-y-1 pt-2 border-t">
+                            <h4 className="text-sm font-medium">Instructions:</h4>
+                            <p className="text-sm text-muted-foreground">{meal.instructions}</p>
+                          </div>
+                        )}
                       </div>
                     ))
                   ) : (
-                    <p>No active meal plan found. Generate a new one to get started!</p>
+                    <div className="text-center py-8">
+                      <p className="text-muted-foreground mb-4">No active meal plan found.</p>
+                      <p className="text-sm">Click "Generate New Plan" to create your personalized nutrition plan!</p>
+                    </div>
                   )}
                 </CardContent>
               </Card>
