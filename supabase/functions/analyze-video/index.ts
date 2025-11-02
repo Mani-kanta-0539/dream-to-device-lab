@@ -90,9 +90,30 @@ serve(async (req) => {
     const fileData = await uploadResponse.json();
     console.log('File uploaded to Gemini:', fileData);
 
-    // Step 4: Wait for file processing
+    // Step 4: Poll file status until it's ACTIVE
     console.log('Waiting for file processing...');
-    await new Promise(resolve => setTimeout(resolve, 5000));
+    const fileName = fileData.file.name;
+    let fileStatus = fileData.file.state;
+    let attempts = 0;
+    const maxAttempts = 30; // 30 seconds max wait
+    
+    while (fileStatus === 'PROCESSING' && attempts < maxAttempts) {
+      await new Promise(resolve => setTimeout(resolve, 1000));
+      attempts++;
+      
+      const statusResponse = await fetch(`https://generativelanguage.googleapis.com/v1beta/${fileName}?key=${GEMINI_API_KEY}`);
+      if (statusResponse.ok) {
+        const statusData = await statusResponse.json();
+        fileStatus = statusData.state;
+        console.log(`File status check ${attempts}: ${fileStatus}`);
+      }
+    }
+    
+    if (fileStatus !== 'ACTIVE') {
+      throw new Error(`File processing failed or timed out. Status: ${fileStatus}`);
+    }
+    
+    console.log('File is ACTIVE and ready for analysis');
 
     const prompt = exerciseType 
       ? `Analyze this ${exerciseType} workout video for proper form and technique. Provide:
