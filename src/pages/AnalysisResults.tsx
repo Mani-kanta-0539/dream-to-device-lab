@@ -6,6 +6,7 @@ import { Progress } from "@/components/ui/progress";
 import { ChevronLeft, CheckCircle2, AlertCircle, XCircle } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
+import { PoseVideoPlayer } from "@/components/video/PoseVideoPlayer";
 
 interface FeedbackItem {
   category: string;
@@ -96,12 +97,13 @@ const AnalysisResults = () => {
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
               {/* Main Content */}
               <div className="lg:col-span-2 space-y-6">
-                {/* Video Player */}
+                {/* Video Player with Pose Detection */}
                 <Card>
-                  <CardContent className="p-6">
-                    <div className="aspect-video rounded-lg bg-gradient-to-br from-primary/20 to-accent/20 flex items-center justify-center mb-4">
-                      <video src={analysis.video_url} controls className="w-full h-full rounded-lg" />
-                    </div>
+                  <CardHeader>
+                    <CardTitle>Video Analysis with Pose Detection</CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <PoseVideoPlayer videoUrl={analysis.video_url} />
                   </CardContent>
                 </Card>
 
