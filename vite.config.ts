@@ -29,5 +29,6 @@ export default defineConfig(({ mode }) => ({
   },
   optimizeDeps: {
     include: ['react', 'react-dom', 'react-router-dom'],
+    exclude: ['@mediapipe/pose', '@mediapipe/drawing_utils', '@mediapipe/camera_utils'],
   },
 }));
