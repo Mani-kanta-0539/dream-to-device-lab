@@ -22,6 +22,7 @@ export const PoseVideoPlayer = ({ videoUrl }: PoseVideoPlayerProps) => {
   const [isPlaying, setIsPlaying] = useState(false);
   const [isPoseEnabled, setIsPoseEnabled] = useState(true);
   const [isLoading, setIsLoading] = useState(true);
+  const [videoReady, setVideoReady] = useState(false);
   const poseRef = useRef<any>(null);
   const animationFrameRef = useRef<number>();
 
@@ -89,10 +90,6 @@ export const PoseVideoPlayer = ({ videoUrl }: PoseVideoPlayerProps) => {
           const ctx = canvas.getContext("2d");
           if (!ctx) return;
 
-          // Set canvas size to match video
-          canvas.width = videoRef.current.videoWidth;
-          canvas.height = videoRef.current.videoHeight;
-
           // Clear canvas
           ctx.clearRect(0, 0, canvas.width, canvas.height);
 
@@ -134,10 +131,10 @@ export const PoseVideoPlayer = ({ videoUrl }: PoseVideoPlayerProps) => {
 
   useEffect(() => {
     const processFrame = async () => {
-      if (!videoRef.current || !poseRef.current || !isPlaying || !isPoseEnabled) return;
+      if (!videoRef.current || !poseRef.current || !isPlaying || !isPoseEnabled || !videoReady) return;
 
       const video = videoRef.current;
-      if (video.paused || video.ended) return;
+      if (video.paused || video.ended || video.videoWidth === 0 || video.videoHeight === 0) return;
 
       try {
         await poseRef.current.send({ image: video });
@@ -148,7 +145,7 @@ export const PoseVideoPlayer = ({ videoUrl }: PoseVideoPlayerProps) => {
       animationFrameRef.current = requestAnimationFrame(processFrame);
     };
 
-    if (isPlaying && isPoseEnabled) {
+    if (isPlaying && isPoseEnabled && videoReady) {
       processFrame();
     }
 
@@ -157,7 +154,7 @@ export const PoseVideoPlayer = ({ videoUrl }: PoseVideoPlayerProps) => {
         cancelAnimationFrame(animationFrameRef.current);
       }
     };
-  }, [isPlaying, isPoseEnabled]);
+  }, [isPlaying, isPoseEnabled, videoReady]);
 
   const handlePlayPause = () => {
     if (!videoRef.current) return;
@@ -183,6 +180,20 @@ export const PoseVideoPlayer = ({ videoUrl }: PoseVideoPlayerProps) => {
     setIsPlaying(false);
   };
 
+  const handleVideoLoadedMetadata = () => {
+    if (!videoRef.current || !canvasRef.current) return;
+    
+    const video = videoRef.current;
+    const canvas = canvasRef.current;
+    
+    // Set canvas size to match video dimensions
+    canvas.width = video.videoWidth;
+    canvas.height = video.videoHeight;
+    
+    setVideoReady(true);
+    setIsLoading(false);
+  };
+
   return (
     <div className="space-y-4">
       <div className="relative aspect-video rounded-lg bg-black overflow-hidden">
@@ -191,7 +202,7 @@ export const PoseVideoPlayer = ({ videoUrl }: PoseVideoPlayerProps) => {
           src={videoUrl}
           className="w-full h-full object-contain"
           onEnded={handleVideoEnded}
-          onLoadedData={() => setIsLoading(false)}
+          onLoadedMetadata={handleVideoLoadedMetadata}
           playsInline
           crossOrigin="anonymous"
         />
