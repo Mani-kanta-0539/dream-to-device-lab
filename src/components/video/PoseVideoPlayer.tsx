@@ -193,6 +193,7 @@ export const PoseVideoPlayer = ({ videoUrl }: PoseVideoPlayerProps) => {
           onEnded={handleVideoEnded}
           onLoadedData={() => setIsLoading(false)}
           playsInline
+          crossOrigin="anonymous"
         />
         <canvas
           ref={canvasRef}
