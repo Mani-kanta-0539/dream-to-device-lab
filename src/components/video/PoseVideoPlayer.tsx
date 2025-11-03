@@ -1,8 +1,16 @@
 import { useEffect, useRef, useState } from "react";
-import { Pose, POSE_CONNECTIONS } from "@mediapipe/pose";
-import { drawConnectors, drawLandmarks } from "@mediapipe/drawing_utils";
 import { Button } from "@/components/ui/button";
 import { Play, Pause, RotateCcw } from "lucide-react";
+
+// Load MediaPipe from CDN
+declare global {
+  interface Window {
+    Pose: any;
+    POSE_CONNECTIONS: any;
+    drawConnectors: any;
+    drawLandmarks: any;
+  }
+}
 
 interface PoseVideoPlayerProps {
   videoUrl: string;
@@ -14,58 +22,102 @@ export const PoseVideoPlayer = ({ videoUrl }: PoseVideoPlayerProps) => {
   const [isPlaying, setIsPlaying] = useState(false);
   const [isPoseEnabled, setIsPoseEnabled] = useState(true);
   const [isLoading, setIsLoading] = useState(true);
-  const poseRef = useRef<Pose | null>(null);
+  const poseRef = useRef<any>(null);
   const animationFrameRef = useRef<number>();
 
   useEffect(() => {
-    const initializePose = async () => {
-      const pose = new Pose({
-        locateFile: (file) => {
-          return `https://cdn.jsdelivr.net/npm/@mediapipe/pose/${file}`;
-        },
-      });
-
-      pose.setOptions({
-        modelComplexity: 1,
-        smoothLandmarks: true,
-        enableSegmentation: false,
-        smoothSegmentation: false,
-        minDetectionConfidence: 0.5,
-        minTrackingConfidence: 0.5,
-      });
-
-      pose.onResults((results) => {
-        if (!canvasRef.current || !videoRef.current) return;
-        
-        const canvas = canvasRef.current;
-        const ctx = canvas.getContext("2d");
-        if (!ctx) return;
-
-        // Set canvas size to match video
-        canvas.width = videoRef.current.videoWidth;
-        canvas.height = videoRef.current.videoHeight;
-
-        // Clear canvas
-        ctx.clearRect(0, 0, canvas.width, canvas.height);
-
-        if (results.poseLandmarks && isPoseEnabled) {
-          // Draw pose connections (skeleton lines)
-          drawConnectors(ctx, results.poseLandmarks, POSE_CONNECTIONS, {
-            color: "#00FF00",
-            lineWidth: 4,
-          });
-
-          // Draw pose landmarks (joints)
-          drawLandmarks(ctx, results.poseLandmarks, {
-            color: "#FF0000",
-            lineWidth: 2,
-            radius: 6,
-          });
+    const loadMediaPipeScripts = () => {
+      return new Promise<void>((resolve, reject) => {
+        // Check if already loaded
+        if (window.Pose && window.drawConnectors && window.drawLandmarks) {
+          resolve();
+          return;
         }
-      });
 
-      poseRef.current = pose;
-      setIsLoading(false);
+        // Load pose script
+        const poseScript = document.createElement('script');
+        poseScript.src = 'https://cdn.jsdelivr.net/npm/@mediapipe/pose@0.5.1675469404/pose.js';
+        poseScript.crossOrigin = 'anonymous';
+        
+        // Load drawing utils script
+        const drawingScript = document.createElement('script');
+        drawingScript.src = 'https://cdn.jsdelivr.net/npm/@mediapipe/drawing_utils@0.3.1675466124/drawing_utils.js';
+        drawingScript.crossOrigin = 'anonymous';
+
+        let scriptsLoaded = 0;
+        const onScriptLoad = () => {
+          scriptsLoaded++;
+          if (scriptsLoaded === 2) {
+            resolve();
+          }
+        };
+
+        poseScript.onload = onScriptLoad;
+        drawingScript.onload = onScriptLoad;
+        poseScript.onerror = reject;
+        drawingScript.onerror = reject;
+
+        document.head.appendChild(poseScript);
+        document.head.appendChild(drawingScript);
+      });
+    };
+
+    const initializePose = async () => {
+      try {
+        // Load MediaPipe scripts first
+        await loadMediaPipeScripts();
+
+        const pose = new window.Pose({
+          locateFile: (file: string) => {
+            return `https://cdn.jsdelivr.net/npm/@mediapipe/pose@0.5.1675469404/${file}`;
+          },
+        });
+
+        pose.setOptions({
+          modelComplexity: 1,
+          smoothLandmarks: true,
+          enableSegmentation: false,
+          smoothSegmentation: false,
+          minDetectionConfidence: 0.5,
+          minTrackingConfidence: 0.5,
+        });
+
+        pose.onResults((results: any) => {
+          if (!canvasRef.current || !videoRef.current) return;
+          
+          const canvas = canvasRef.current;
+          const ctx = canvas.getContext("2d");
+          if (!ctx) return;
+
+          // Set canvas size to match video
+          canvas.width = videoRef.current.videoWidth;
+          canvas.height = videoRef.current.videoHeight;
+
+          // Clear canvas
+          ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+          if (results.poseLandmarks && isPoseEnabled) {
+            // Draw pose connections (skeleton lines)
+            window.drawConnectors(ctx, results.poseLandmarks, window.POSE_CONNECTIONS, {
+              color: "#00FF00",
+              lineWidth: 4,
+            });
+
+            // Draw pose landmarks (joints)
+            window.drawLandmarks(ctx, results.poseLandmarks, {
+              color: "#FF0000",
+              lineWidth: 2,
+              radius: 6,
+            });
+          }
+        });
+
+        poseRef.current = pose;
+        setIsLoading(false);
+      } catch (error) {
+        console.error("Error initializing MediaPipe Pose:", error);
+        setIsLoading(false);
+      }
     };
 
     initializePose();
