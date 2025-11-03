@@ -38,6 +38,8 @@ const VideoAnalysis = () => {
     setIsAnalyzing(true);
     
     try {
+      console.log('Starting video upload...');
+      
       // Upload video to storage - organize by user ID
       const fileExt = file.name.split('.').pop();
       const fileName = `${Math.random()}.${fileExt}`;
@@ -47,7 +49,12 @@ const VideoAnalysis = () => {
         .from('analysis-videos')
         .upload(filePath, file);
 
-      if (uploadError) throw uploadError;
+      if (uploadError) {
+        console.error('Upload error:', uploadError);
+        throw uploadError;
+      }
+      
+      console.log('Video uploaded successfully:', filePath);
 
       // Get public URL since bucket is now public
       const { data: { publicUrl } } = supabase.storage
@@ -55,6 +62,7 @@ const VideoAnalysis = () => {
         .getPublicUrl(filePath);
 
       // Create video analysis record
+      console.log('Creating analysis record...');
       const { data: analysisRecord, error: recordError } = await supabase
         .from('video_analyses')
         .insert({
@@ -65,9 +73,15 @@ const VideoAnalysis = () => {
         .select()
         .single();
 
-      if (recordError) throw recordError;
+      if (recordError) {
+        console.error('Record creation error:', recordError);
+        throw recordError;
+      }
+      
+      console.log('Analysis record created:', analysisRecord.id);
 
       // Call AI analysis function with public URL
+      console.log('Calling analyze-video function...');
       const { data: analysisData, error: analysisError } = await supabase.functions.invoke('analyze-video', {
         body: { 
           videoUrl: publicUrl,
@@ -75,10 +89,16 @@ const VideoAnalysis = () => {
         }
       });
 
-      if (analysisError) throw analysisError;
+      if (analysisError) {
+        console.error('Analysis function error:', analysisError);
+        throw analysisError;
+      }
+      
+      console.log('Analysis completed:', analysisData);
 
       // Update analysis record with results
-      await supabase
+      console.log('Updating analysis record with results...');
+      const { error: updateError } = await supabase
         .from('video_analyses')
         .update({
           analysis_status: 'completed',
@@ -88,6 +108,11 @@ const VideoAnalysis = () => {
           improvement_suggestions: analysisData.analysis.improvementSuggestions
         })
         .eq('id', analysisRecord.id);
+      
+      if (updateError) {
+        console.error('Update error:', updateError);
+        throw updateError;
+      }
 
       toast({
         title: "Analysis Complete!",

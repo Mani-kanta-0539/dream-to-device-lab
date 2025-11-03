@@ -94,17 +94,17 @@ export const PoseVideoPlayer = ({ videoUrl }: PoseVideoPlayerProps) => {
           ctx.clearRect(0, 0, canvas.width, canvas.height);
 
           if (results.poseLandmarks && isPoseEnabled) {
-            // Draw pose connections (skeleton lines)
+            // Draw pose connections (skeleton lines) - increased thickness
             window.drawConnectors(ctx, results.poseLandmarks, window.POSE_CONNECTIONS, {
               color: "#00FF00",
-              lineWidth: 4,
+              lineWidth: 6,
             });
 
-            // Draw pose landmarks (joints)
+            // Draw pose landmarks (joints) - increased size
             window.drawLandmarks(ctx, results.poseLandmarks, {
               color: "#FF0000",
-              lineWidth: 2,
-              radius: 6,
+              lineWidth: 3,
+              radius: 8,
             });
           }
         });
