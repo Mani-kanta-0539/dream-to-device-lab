@@ -208,8 +208,12 @@ export const PoseVideoPlayer = ({ videoUrl }: PoseVideoPlayerProps) => {
         />
         <canvas
           ref={canvasRef}
-          className="absolute top-0 left-0 w-full h-full pointer-events-none"
-          style={{ objectFit: "contain" }}
+          className="absolute inset-0 pointer-events-none"
+          style={{ 
+            width: '100%', 
+            height: '100%',
+            objectFit: 'contain'
+          }}
         />
         {isLoading && (
           <div className="absolute inset-0 flex items-center justify-center bg-black/50">
