@@ -218,32 +218,34 @@ export const RealtimePoseAnalysis = () => {
         audio: false
       });
 
-      console.log('Camera stream obtained:', stream.getVideoTracks().length, 'video tracks');
+      console.log('Camera stream obtained:', stream.active, stream.getVideoTracks().length, 'tracks');
 
-      if (videoRef.current) {
+      if (videoRef.current && canvasRef.current) {
         videoRef.current.srcObject = stream;
         streamRef.current = stream;
-
-        videoRef.current.onloadedmetadata = async () => {
-          if (videoRef.current && canvasRef.current) {
-            const video = videoRef.current;
-            console.log('Video metadata loaded. Dimensions:', video.videoWidth, 'x', video.videoHeight);
-            
-            // Set canvas size to match video
-            canvasRef.current.width = video.videoWidth;
-            canvasRef.current.height = video.videoHeight;
-            
-            try {
-              await video.play();
-              console.log('Video playing successfully');
-              setIsActive(true);
-              setIsLoading(false);
-              processFrame();
-            } catch (playError) {
-              console.error('Error playing video:', playError);
-            }
+        
+        // Wait for video to be ready
+        await new Promise<void>((resolve) => {
+          if (videoRef.current) {
+            videoRef.current.onloadedmetadata = () => {
+              console.log('Video metadata loaded');
+              resolve();
+            };
           }
-        };
+        });
+
+        // Play video
+        await videoRef.current.play();
+        console.log('Video playing:', !videoRef.current.paused);
+        
+        // Set canvas dimensions
+        canvasRef.current.width = videoRef.current.videoWidth;
+        canvasRef.current.height = videoRef.current.videoHeight;
+        console.log('Canvas dimensions set:', canvasRef.current.width, 'x', canvasRef.current.height);
+        
+        setIsActive(true);
+        setIsLoading(false);
+        processFrame();
       }
 
       toast({
@@ -316,25 +318,25 @@ export const RealtimePoseAnalysis = () => {
         <div className="lg:col-span-2">
           <Card>
             <CardContent className="p-6">
-          <div className="relative aspect-video rounded-lg bg-muted overflow-hidden">
+          <div className="relative aspect-video rounded-lg overflow-hidden" style={{ backgroundColor: '#000' }}>
+            {!isActive && (
+              <div className="absolute inset-0 flex items-center justify-center bg-muted z-10">
+                <p className="text-muted-foreground text-lg">Click "Start Camera" to begin</p>
+              </div>
+            )}
             <video
               ref={videoRef}
               autoPlay
               playsInline
               muted
-              className="absolute inset-0 w-full h-full object-cover"
-              style={{ transform: 'scaleX(-1)', backgroundColor: '#000' }}
+              className="w-full h-full object-cover"
+              style={{ transform: 'scaleX(-1)' }}
             />
             <canvas
               ref={canvasRef}
-              className="absolute inset-0 w-full h-full pointer-events-none"
-              style={{ transform: 'scaleX(-1)', mixBlendMode: 'screen' }}
+              className="absolute inset-0 pointer-events-none"
+              style={{ transform: 'scaleX(-1)' }}
             />
-            {!isActive && (
-              <div className="absolute inset-0 flex items-center justify-center bg-muted">
-                <p className="text-muted-foreground text-lg">Click "Start Camera" to begin</p>
-              </div>
-            )}
           </div>
             </CardContent>
           </Card>
