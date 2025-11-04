@@ -208,31 +208,42 @@ export const RealtimePoseAnalysis = () => {
   const startCamera = async () => {
     setIsLoading(true);
     try {
+      console.log('Requesting camera access...');
       const stream = await navigator.mediaDevices.getUserMedia({
         video: {
           width: { ideal: 1280 },
           height: { ideal: 720 },
           facingMode: 'user'
-        }
+        },
+        audio: false
       });
+
+      console.log('Camera stream obtained:', stream.getVideoTracks().length, 'video tracks');
 
       if (videoRef.current) {
         videoRef.current.srcObject = stream;
         streamRef.current = stream;
 
-        videoRef.current.onloadedmetadata = () => {
+        videoRef.current.onloadedmetadata = async () => {
           if (videoRef.current && canvasRef.current) {
             const video = videoRef.current;
+            console.log('Video metadata loaded. Dimensions:', video.videoWidth, 'x', video.videoHeight);
+            
+            // Set canvas size to match video
             canvasRef.current.width = video.videoWidth;
             canvasRef.current.height = video.videoHeight;
-            console.log('Video dimensions:', video.videoWidth, 'x', video.videoHeight);
-            setIsActive(true);
-            setIsLoading(false);
-            processFrame();
+            
+            try {
+              await video.play();
+              console.log('Video playing successfully');
+              setIsActive(true);
+              setIsLoading(false);
+              processFrame();
+            } catch (playError) {
+              console.error('Error playing video:', playError);
+            }
           }
         };
-
-        await videoRef.current.play();
       }
 
       toast({
@@ -305,23 +316,23 @@ export const RealtimePoseAnalysis = () => {
         <div className="lg:col-span-2">
           <Card>
             <CardContent className="p-6">
-          <div className="relative aspect-video rounded-lg bg-black overflow-hidden">
+          <div className="relative aspect-video rounded-lg bg-muted overflow-hidden">
             <video
               ref={videoRef}
               autoPlay
               playsInline
               muted
               className="absolute inset-0 w-full h-full object-cover"
-              style={{ transform: 'scaleX(-1)' }}
+              style={{ transform: 'scaleX(-1)', backgroundColor: '#000' }}
             />
             <canvas
               ref={canvasRef}
               className="absolute inset-0 w-full h-full pointer-events-none"
-              style={{ transform: 'scaleX(-1)' }}
+              style={{ transform: 'scaleX(-1)', mixBlendMode: 'screen' }}
             />
             {!isActive && (
-              <div className="absolute inset-0 flex items-center justify-center bg-black/50">
-                <p className="text-white text-lg">Click "Start Camera" to begin</p>
+              <div className="absolute inset-0 flex items-center justify-center bg-muted">
+                <p className="text-muted-foreground text-lg">Click "Start Camera" to begin</p>
               </div>
             )}
           </div>
