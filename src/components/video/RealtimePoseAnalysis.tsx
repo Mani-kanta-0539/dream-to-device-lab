@@ -222,13 +222,17 @@ export const RealtimePoseAnalysis = () => {
 
         videoRef.current.onloadedmetadata = () => {
           if (videoRef.current && canvasRef.current) {
-            canvasRef.current.width = videoRef.current.videoWidth;
-            canvasRef.current.height = videoRef.current.videoHeight;
+            const video = videoRef.current;
+            canvasRef.current.width = video.videoWidth;
+            canvasRef.current.height = video.videoHeight;
+            console.log('Video dimensions:', video.videoWidth, 'x', video.videoHeight);
             setIsActive(true);
             setIsLoading(false);
             processFrame();
           }
         };
+
+        await videoRef.current.play();
       }
 
       toast({
@@ -301,29 +305,26 @@ export const RealtimePoseAnalysis = () => {
         <div className="lg:col-span-2">
           <Card>
             <CardContent className="p-6">
-              <div className="relative aspect-video rounded-lg bg-black overflow-hidden">
-                <video
-                  ref={videoRef}
-                  autoPlay
-                  playsInline
-                  muted
-                  className="w-full h-full object-contain"
-                />
-                <canvas
-                  ref={canvasRef}
-                  className="absolute inset-0 pointer-events-none"
-                  style={{ 
-                    width: '100%', 
-                    height: '100%',
-                    objectFit: 'contain'
-                  }}
-                />
-                {!isActive && (
-                  <div className="absolute inset-0 flex items-center justify-center bg-black/50">
-                    <p className="text-white text-lg">Click "Start Camera" to begin</p>
-                  </div>
-                )}
+          <div className="relative aspect-video rounded-lg bg-black overflow-hidden">
+            <video
+              ref={videoRef}
+              autoPlay
+              playsInline
+              muted
+              className="absolute inset-0 w-full h-full object-cover"
+              style={{ transform: 'scaleX(-1)' }}
+            />
+            <canvas
+              ref={canvasRef}
+              className="absolute inset-0 w-full h-full pointer-events-none"
+              style={{ transform: 'scaleX(-1)' }}
+            />
+            {!isActive && (
+              <div className="absolute inset-0 flex items-center justify-center bg-black/50">
+                <p className="text-white text-lg">Click "Start Camera" to begin</p>
               </div>
+            )}
+          </div>
             </CardContent>
           </Card>
         </div>
