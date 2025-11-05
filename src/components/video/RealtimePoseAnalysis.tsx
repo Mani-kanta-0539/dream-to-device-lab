@@ -365,9 +365,14 @@ export const RealtimePoseAnalysis = () => {
           <Card>
             <CardContent className="p-6">
           <div className="relative aspect-video rounded-lg overflow-hidden" style={{ backgroundColor: '#000' }}>
-            {!isActive && (
+            {!isActive && !isLoading && (
               <div className="absolute inset-0 flex items-center justify-center bg-muted z-10">
                 <p className="text-muted-foreground text-lg">Click "Start Camera" to begin</p>
+              </div>
+            )}
+            {isLoading && (
+              <div className="absolute inset-0 flex items-center justify-center bg-muted z-10">
+                <p className="text-muted-foreground text-lg">Loading camera...</p>
               </div>
             )}
             <video
