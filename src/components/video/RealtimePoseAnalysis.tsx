@@ -26,6 +26,7 @@ export const RealtimePoseAnalysis = () => {
   const poseRef = useRef<any>(null);
   const streamRef = useRef<MediaStream | null>(null);
   const animationFrameRef = useRef<number>();
+  const isActiveRef = useRef(false); // Track active state for frame processing
 
   useEffect(() => {
     const loadMediaPipeScripts = () => {
@@ -210,12 +211,7 @@ export const RealtimePoseAnalysis = () => {
   };
 
   const processFrame = async () => {
-    if (!videoRef.current || !poseRef.current || !isActive) {
-      console.log('Frame processing stopped:', { 
-        hasVideo: !!videoRef.current, 
-        hasPose: !!poseRef.current, 
-        isActive 
-      });
+    if (!videoRef.current || !poseRef.current || !isActiveRef.current) {
       return;
     }
 
@@ -269,8 +265,12 @@ export const RealtimePoseAnalysis = () => {
         canvasRef.current.height = videoRef.current.videoHeight;
         console.log('Canvas dimensions set:', canvasRef.current.width, 'x', canvasRef.current.height);
         
+        // Set ref first for immediate use in processFrame
+        isActiveRef.current = true;
         setIsActive(true);
         setIsLoading(false);
+        
+        console.log('Starting frame processing loop...');
         processFrame();
       }
 
@@ -290,6 +290,8 @@ export const RealtimePoseAnalysis = () => {
   };
 
   const stopCamera = () => {
+    isActiveRef.current = false; // Stop processing immediately
+    
     if (streamRef.current) {
       streamRef.current.getTracks().forEach(track => track.stop());
       streamRef.current = null;
