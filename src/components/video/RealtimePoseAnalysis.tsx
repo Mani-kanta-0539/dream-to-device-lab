@@ -31,6 +31,7 @@ export const RealtimePoseAnalysis = () => {
     const loadMediaPipeScripts = () => {
       return new Promise<void>((resolve, reject) => {
         if (window.Pose && window.drawConnectors && window.drawLandmarks) {
+          console.log('MediaPipe scripts already loaded');
           resolve();
           return;
         }
@@ -46,7 +47,9 @@ export const RealtimePoseAnalysis = () => {
         let scriptsLoaded = 0;
         const onScriptLoad = () => {
           scriptsLoaded++;
+          console.log(`MediaPipe script ${scriptsLoaded}/2 loaded`);
           if (scriptsLoaded === 2) {
+            console.log('All MediaPipe scripts loaded successfully');
             resolve();
           }
         };
@@ -63,6 +66,7 @@ export const RealtimePoseAnalysis = () => {
 
     const initializePose = async () => {
       try {
+        console.log('Initializing MediaPipe Pose...');
         await loadMediaPipeScripts();
 
         const pose = new window.Pose({
@@ -71,43 +75,58 @@ export const RealtimePoseAnalysis = () => {
           },
         });
 
+        console.log('Setting Pose options...');
         pose.setOptions({
           modelComplexity: 1,
           smoothLandmarks: true,
           enableSegmentation: false,
           smoothSegmentation: false,
-          minDetectionConfidence: 0.7,
-          minTrackingConfidence: 0.7,
+          minDetectionConfidence: 0.5,
+          minTrackingConfidence: 0.5,
         });
 
+        console.log('Configuring Pose results callback...');
         pose.onResults((results: any) => {
-          if (!canvasRef.current || !videoRef.current) return;
+          if (!canvasRef.current || !videoRef.current) {
+            console.log('Canvas or video ref not available');
+            return;
+          }
           
           const canvas = canvasRef.current;
           const ctx = canvas.getContext("2d");
-          if (!ctx) return;
+          if (!ctx) {
+            console.log('Canvas context not available');
+            return;
+          }
 
+          ctx.save();
           ctx.clearRect(0, 0, canvas.width, canvas.height);
 
           if (results.poseLandmarks) {
+            console.log('Pose detected! Drawing landmarks...');
             // Draw pose connections
             window.drawConnectors(ctx, results.poseLandmarks, window.POSE_CONNECTIONS, {
               color: "#00FF00",
-              lineWidth: 6,
+              lineWidth: 4,
             });
 
             window.drawLandmarks(ctx, results.poseLandmarks, {
               color: "#FF0000",
-              lineWidth: 3,
-              radius: 8,
+              lineWidth: 2,
+              radius: 6,
             });
 
             // Analyze push-up
             analyzePushUp(results.poseLandmarks);
+          } else {
+            console.log('No pose landmarks detected in frame');
           }
+          
+          ctx.restore();
         });
 
         poseRef.current = pose;
+        console.log('MediaPipe Pose initialized successfully!');
         setIsLoading(false);
       } catch (error) {
         console.error("Error initializing MediaPipe Pose:", error);
@@ -191,7 +210,14 @@ export const RealtimePoseAnalysis = () => {
   };
 
   const processFrame = async () => {
-    if (!videoRef.current || !poseRef.current || !isActive) return;
+    if (!videoRef.current || !poseRef.current || !isActive) {
+      console.log('Frame processing stopped:', { 
+        hasVideo: !!videoRef.current, 
+        hasPose: !!poseRef.current, 
+        isActive 
+      });
+      return;
+    }
 
     const video = videoRef.current;
     if (video.readyState === video.HAVE_ENOUGH_DATA) {
