@@ -20,8 +20,9 @@ export const RealtimePoseAnalysis = () => {
   const [isActive, setIsActive] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [pushUpCount, setPushUpCount] = useState(0);
-  const [currentPhase, setCurrentPhase] = useState<'up' | 'down' | 'none'>('none');
+  const [currentPhase, setCurrentPhase] = useState<'up' | 'down' | 'transition'>('up');
   const [feedback, setFeedback] = useState<string>('');
+  const lastCountTimeRef = useRef<number>(0); // Prevent double counting
   const { toast } = useToast();
   const poseRef = useRef<any>(null);
   const streamRef = useRef<MediaStream | null>(null);
@@ -168,32 +169,48 @@ export const RealtimePoseAnalysis = () => {
     const rightBodyAngle = calculateAngle(rightShoulder, rightHip, { x: rightHip.x, y: rightHip.y + 0.1, z: rightHip.z });
     const avgBodyAngle = (leftBodyAngle + rightBodyAngle) / 2;
 
-    // Push-up detection logic
+    // Push-up detection logic with improved thresholds
     let newFeedback = '';
+    const now = Date.now();
+    const minTimeBetweenReps = 500; // Minimum 500ms between reps to prevent double counting
 
-    // Check body alignment
+    // Check body alignment first
     if (avgBodyAngle < 160) {
       newFeedback = '⚠️ Keep your body straight! Don\'t let hips sag.';
-    } else if (avgBodyAngle > 190) {
+    } else if (avgBodyAngle > 200) {
       newFeedback = '⚠️ Don\'t arch your back! Engage your core.';
     }
 
-    // Detect push-up phases
-    if (avgElbowAngle < 90 && currentPhase !== 'down') {
+    // Improved push-up phase detection
+    // DOWN position: elbows bent significantly (< 100 degrees)
+    if (avgElbowAngle < 100 && currentPhase === 'up') {
       setCurrentPhase('down');
-      if (!newFeedback) newFeedback = '👇 Good! Now push up!';
-    } else if (avgElbowAngle > 160 && currentPhase === 'down') {
-      setCurrentPhase('up');
-      setPushUpCount(prev => prev + 1);
-      newFeedback = '✅ Push-up counted! Great form!';
-    } else if (avgElbowAngle > 160 && currentPhase !== 'down') {
+      if (!newFeedback) newFeedback = '👇 Good depth! Now push up!';
+    } 
+    // UP position: arms nearly straight (> 150 degrees) after being down
+    else if (avgElbowAngle > 150 && currentPhase === 'down') {
+      // Only count if enough time has passed since last rep
+      if (now - lastCountTimeRef.current > minTimeBetweenReps) {
+        setCurrentPhase('up');
+        setPushUpCount(prev => prev + 1);
+        lastCountTimeRef.current = now;
+        newFeedback = '✅ Rep counted! Great job!';
+      }
+    }
+    // TRANSITION: in between positions
+    else if (avgElbowAngle >= 100 && avgElbowAngle <= 150) {
+      if (currentPhase === 'up' && avgElbowAngle < 120) {
+        setCurrentPhase('transition');
+        if (!newFeedback) newFeedback = '🔽 Keep going down...';
+      } else if (currentPhase === 'down' && avgElbowAngle > 130) {
+        setCurrentPhase('transition');
+        if (!newFeedback) newFeedback = '⬆️ Push all the way up!';
+      }
+    }
+    // Starting position
+    else if (avgElbowAngle > 150 && currentPhase !== 'down') {
       setCurrentPhase('up');
       if (!newFeedback) newFeedback = '💪 Ready! Lower yourself down.';
-    }
-
-    // Check elbow position
-    if (avgElbowAngle < 160 && avgElbowAngle > 90) {
-      if (!newFeedback) newFeedback = '🔽 Lower down more for full range!';
     }
 
     setFeedback(newFeedback);
@@ -311,8 +328,9 @@ export const RealtimePoseAnalysis = () => {
 
   const resetCount = () => {
     setPushUpCount(0);
-    setCurrentPhase('none');
+    setCurrentPhase('up');
     setFeedback('');
+    lastCountTimeRef.current = 0;
   };
 
   return (
