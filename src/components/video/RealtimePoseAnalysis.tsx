@@ -357,12 +357,12 @@ export const RealtimePoseAnalysis = () => {
               autoPlay
               playsInline
               muted
-              className="w-full h-full object-cover"
+              className="absolute inset-0 w-full h-full object-contain"
               style={{ transform: 'scaleX(-1)' }}
             />
             <canvas
               ref={canvasRef}
-              className="absolute inset-0 pointer-events-none"
+              className="absolute inset-0 w-full h-full pointer-events-none"
               style={{ transform: 'scaleX(-1)' }}
             />
           </div>
